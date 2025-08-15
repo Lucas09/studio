@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -9,6 +10,7 @@ import GameHeader from '@/components/game/game-header';
 import GameOverDialog from '@/components/game/game-over-dialog';
 import { getAdaptiveHint } from '@/ai/flows/adaptive-hints';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Home, RotateCw, Lightbulb } from 'lucide-react';
 
@@ -198,7 +200,6 @@ export default function PlayPage() {
             onCellClick={handleCellClick}
             selectedCell={selectedCell}
             solution={solution}
-            isNotesMode={isNotesMode}
             shakeCell={shakeCell}
           />
           <div className="flex flex-col gap-4 w-full lg:w-auto">
