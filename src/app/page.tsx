@@ -470,7 +470,7 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
     const [copied, setCopied] = React.useState(false);
 
     const copyToClipboard = () => {
-        if (navigator.clipboard) {
+        if (typeof window !== 'undefined' && navigator.clipboard) {
             navigator.clipboard.writeText(gameId).then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -722,7 +722,9 @@ export default function App() {
             const mode = 'Sammen';
             startGame(difficulty, mode, gameId);
         } else {
-            alert(t.invalidGameId);
+             if (typeof window !== 'undefined') {
+                alert(t.invalidGameId);
+             }
         }
     };
     
