@@ -1,92 +1,88 @@
-"use client";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-import { cn } from '@/lib/utils';
-
-type Grid = (number | null)[][];
-type Notes = Record<string, Set<number>>;
-
-interface SudokuBoardProps {
-  grid: Grid;
-  puzzle: Grid;
-  notes: Notes;
-  onCellClick: (row: number, col: number) => void;
-  selectedCell: { row: number; col: number } | null;
-  solution: Grid;
-  isNotesMode: boolean;
-  shakeCell: { row: number, col: number } | null;
+body {
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-export default function SudokuBoard({
-  grid,
-  puzzle,
-  notes,
-  onCellClick,
-  selectedCell,
-  solution,
-  isNotesMode,
-  shakeCell
-}: SudokuBoardProps) {
-
-  const isRelated = (row: number, col: number) => {
-    if (!selectedCell) return false;
-    const { row: selRow, col: selCol } = selectedCell;
-    const boxRowStart = Math.floor(selRow / 3) * 3;
-    const boxColStart = Math.floor(selCol / 3) * 3;
-    return (
-      row === selRow ||
-      col === selCol ||
-      (row >= boxRowStart && row < boxRowStart + 3 && col >= boxColStart && col < boxColStart + 3)
-    );
-  };
-  
-  const hasSameValue = (value: number | null) => {
-    if (!selectedCell || !value) return false;
-    const selValue = grid[selectedCell.row][selectedCell.col];
-    return selValue === value;
+@layer base {
+  :root {
+    --background: 0 0% 94.1%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 211 33% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 84% 63%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 63%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 211 33% 28%;
+    --radius: 0.8rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 211 33% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 0 84% 63%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 0 84% 63%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
 
-  return (
-    <div className="aspect-square w-full max-w-md mx-auto rounded-lg overflow-hidden shadow-xl bg-card border">
-      <div className="sudoku-grid">
-        {grid.map((row, rowIndex) => (
-          <div key={rowIndex} className="sudoku-row">
-            {row.map((cell, colIndex) => {
-              const isInitial = puzzle[rowIndex][colIndex] !== null;
-              const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex;
-              const isWrong = cell !== null && cell !== solution[rowIndex][colIndex];
-              const isShaking = shakeCell?.row === rowIndex && shakeCell?.col === colIndex;
-
-              return (
-                <div
-                  key={`${rowIndex}-${colIndex}`}
-                  onClick={() => onCellClick(rowIndex, colIndex)}
-                  className={cn(
-                    'sudoku-cell flex items-center justify-center aspect-square cursor-pointer text-2xl md:text-3xl font-medium transition-colors duration-200',
-                    isRelated(rowIndex, colIndex) && 'bg-primary/5 dark:bg-primary/10',
-                    hasSameValue(cell) && 'bg-primary/10 dark:bg-primary/20',
-                    isSelected ? 'bg-primary/20 dark:bg-primary/30 ring-2 ring-primary z-10' : '',
-                    isInitial ? 'text-foreground font-bold' : 'text-primary',
-                    isWrong && !isNotesMode && 'text-destructive bg-destructive/10',
-                    isShaking && 'animate-shake'
-                  )}
-                >
-                  {cell !== null ? (
-                    cell
-                  ) : notes[`${rowIndex}-${colIndex}`] ? (
-                    <div className="grid grid-cols-3 grid-rows-3 w-full h-full text-xs p-0.5">
-                      {Array.from({ length: 9 }).map((_, i) => (
-                        <div key={i} className="flex items-center justify-center">
-                          {notes[`${rowIndex}-${colIndex}`].has(i + 1) ? i + 1 : ''}
-                        </div>
-                      ))}
-                    </div>
-                  ) : ''}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

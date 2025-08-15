@@ -1,44 +1,88 @@
-"use client";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-import { Heart, Timer, BrainCircuit } from 'lucide-react';
-import { type Difficulty } from '@/lib/sudoku';
-import { Card } from '@/components/ui/card';
-
-interface GameHeaderProps {
-  difficulty: Difficulty;
-  lives: number;
-  seconds: number;
+body {
+  font-family: Arial, Helvetica, sans-serif;
 }
 
-export default function GameHeader({ difficulty, lives, seconds }: GameHeaderProps) {
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const secs = time % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
+@layer base {
+  :root {
+    --background: 0 0% 94.1%;
+    --foreground: 224 71.4% 4.1%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71.4% 4.1%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71.4% 4.1%;
+    --primary: 211 33% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 45.1%;
+    --accent: 0 84% 63%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 63%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 211 33% 28%;
+    --radius: 0.8rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 211 33% 28%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 0 84% 63%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 0 84% 63%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
 
-  const capitalizedDifficulty = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
-
-  return (
-    <header className="w-full mb-4">
-      <Card className="p-2 sm:p-4">
-        <div className="flex items-center justify-between text-sm sm:text-base">
-          <div className="flex items-center gap-2" title="Difficulty">
-            <BrainCircuit className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-            <span className="font-semibold text-primary">{capitalizedDifficulty}</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2" title="Lives">
-              <span className="font-semibold text-destructive">{lives}</span>
-              <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-destructive fill-current" />
-            </div>
-            <div className="flex items-center gap-2" title="Time">
-              <Timer className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
-              <span className="font-semibold text-primary min-w-[45px]">{formatTime(seconds)}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-    </header>
-  );
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
