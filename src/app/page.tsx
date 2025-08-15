@@ -10,7 +10,7 @@ const translations = {
         home: 'Hjem',
         challenges: 'Udfordringer',
         profile: 'Profil',
-        settings: 'Sprog',
+        settings: 'Indstillinger',
         language: 'Sprog',
         
         // Lobby
@@ -507,7 +507,9 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
     const [hasSavedGame, setHasSavedGame] = React.useState(false);
 
     React.useEffect(() => {
-        setHasSavedGame(!!localStorage.getItem('savedSudokuGame'))
+        if (typeof window !== 'undefined') {
+            setHasSavedGame(!!localStorage.getItem('savedSudokuGame'))
+        }
     }, []);
 
 
@@ -810,5 +812,3 @@ export default function App() {
         </div>
     );
 }
-
-    
