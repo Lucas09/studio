@@ -10,7 +10,7 @@ const translations = {
         home: 'Hjem',
         challenges: 'Udfordringer',
         profile: 'Profil',
-        settings: 'Indstillinger',
+        settings: 'Sprog',
         language: 'Sprog',
         
         // Lobby
@@ -470,10 +470,12 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
     const [copied, setCopied] = React.useState(false);
 
     const copyToClipboard = () => {
-        navigator.clipboard.writeText(gameId).then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        });
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(gameId).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            });
+        }
     };
 
     return (
@@ -681,7 +683,7 @@ export default function App() {
     const t = translations[language];
 
     const handleSaveGame = (currentGameState) => {
-        if (currentGameState.mode === 'Alene') {
+        if (typeof window !== 'undefined' && currentGameState.mode === 'Alene') {
             localStorage.setItem('savedSudokuGame', JSON.stringify(currentGameState));
         }
     };
@@ -698,11 +700,13 @@ export default function App() {
     };
 
     const handleResumeGame = () => {
-        const savedGameJSON = localStorage.getItem('savedSudokuGame');
-        if (savedGameJSON) {
-            const savedGameData = JSON.parse(savedGameJSON);
-            setGameData(savedGameData);
-            setActiveView('game');
+        if (typeof window !== 'undefined') {
+            const savedGameJSON = localStorage.getItem('savedSudokuGame');
+            if (savedGameJSON) {
+                const savedGameData = JSON.parse(savedGameJSON);
+                setGameData(savedGameData);
+                setActiveView('game');
+            }
         }
     };
     
@@ -728,7 +732,7 @@ export default function App() {
     
     const handleGameExit = () => {
         const previousView = gameData?.mode?.startsWith(t.dailyChallengesTitle) ? 'daily' : 'lobby';
-        if (gameData?.mode === 'Alene') {
+        if (typeof window !== 'undefined' && gameData?.mode === 'Alene') {
             localStorage.removeItem('savedSudokuGame');
         }
         setGameData(null);
@@ -771,7 +775,22 @@ export default function App() {
     );
     
     if (!isClient) {
-        return null;
+        return (
+            <div className="h-screen w-screen bg-gray-50 font-sans flex flex-col max-w-lg mx-auto shadow-2xl">
+              <main className="flex-grow overflow-y-auto relative"></main>
+              <nav className="flex justify-around bg-white border-t border-gray-200 shadow-lg pb-safe">
+                    <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
+                        <Home /><span className="text-xs mt-1 font-medium">{t.home}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
+                        <Calendar /><span className="text-xs mt-1 font-medium">{t.challenges}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
+                        <User /><span className="text-xs mt-1 font-medium">{t.profile}</span>
+                    </div>
+              </nav>
+            </div>
+        );
     }
 
     return (
@@ -789,3 +808,5 @@ export default function App() {
         </div>
     );
 }
+
+    
