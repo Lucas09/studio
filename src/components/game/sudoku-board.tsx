@@ -49,7 +49,7 @@ export default function SudokuBoard({
     <div className="aspect-square w-full max-w-md mx-auto rounded-lg overflow-hidden shadow-xl bg-card border">
       <div className="sudoku-grid">
         {grid.map((row, rowIndex) => (
-          <div key={rowIndex} className="sudoku-row grid grid-cols-9">
+          <div key={rowIndex} className="sudoku-row">
             {row.map((cell, colIndex) => {
               const isInitial = puzzle[rowIndex][colIndex] !== null;
               const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex;
