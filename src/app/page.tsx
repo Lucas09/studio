@@ -470,14 +470,10 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
     const [copied, setCopied] = React.useState(false);
 
     const copyToClipboard = () => {
-        const tempInput = document.createElement('input');
-        tempInput.value = gameId;
-        document.body.appendChild(tempInput);
-        tempInput.select();
-        document.execCommand('copy');
-        document.body.removeChild(tempInput);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        navigator.clipboard.writeText(gameId).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
     };
 
     return (
@@ -793,4 +789,3 @@ export default function App() {
         </div>
     );
 }
-
