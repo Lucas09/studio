@@ -95,14 +95,14 @@ body {
     @apply border-r border-b border-slate-300 dark:border-slate-700;
   }
   .sudoku-cell:nth-child(3n) {
-    @apply border-r-slate-400 dark:border-r-slate-500;
+    @apply border-r-2 border-r-slate-400 dark:border-r-slate-500;
   }
   .sudoku-cell:nth-child(9n) {
     @apply border-r-0;
   }
 
   .sudoku-row:nth-child(3n) .sudoku-cell {
-     @apply border-b-slate-400 dark:border-b-slate-500;
+     @apply border-b-2 border-b-slate-400 dark:border-b-slate-500;
   }
   .sudoku-row:last-child .sudoku-cell {
     @apply border-b-0;
