@@ -844,7 +844,7 @@ export default function App() {
         }
     };
     
-    const handleCreateMultiplayerGame = async ({difficulty, mode}) => {
+    const handleCreateMultiplayerGame = async ({difficulty, mode}: {difficulty: GameDifficulty, mode: GameMode}) => {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
         try {
             const gameId = await gameService.createGame({ puzzle, solution, difficulty, mode });
