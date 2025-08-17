@@ -99,21 +99,26 @@ const App = () => {
         if (savedGameString) {
             const savedGame = JSON.parse(savedGameString);
             
-            // Critical fix: Ensure player data is correctly parsed from strings back to game format
-            Object.values(savedGame.players).forEach((player: any) => {
-                if(player.notes && typeof player.notes === 'string') {
-                    player.notes = sudokuGenerator.stringToNotes(player.notes);
+            // Critical fix: Ensure all stringified board data is parsed back into the correct format.
+            const playerState = savedGame.players[playerId];
+            if (playerState) {
+                if(playerState.notes && typeof playerState.notes === 'string') {
+                    playerState.notes = sudokuGenerator.stringToNotes(playerState.notes);
                 }
-                if(player.board && typeof player.board === 'string') {
-                    player.board = sudokuGenerator.stringToBoard(player.board);
+                if(playerState.board && typeof playerState.board === 'string') {
+                    playerState.board = sudokuGenerator.stringToBoard(playerState.board);
                 }
-            });
+            }
             
-            // Critical fix: Reconstruct the full game object for the state
+            // Critical fix: Reconstruct the full game object for the state, ensuring puzzle/solution are also parsed.
             const gameToResume: Game = {
                 ...savedGame,
                 puzzle: sudokuGenerator.stringToBoard(savedGame.puzzle),
                 solution: sudokuGenerator.stringToBoard(savedGame.solution),
+                players: {
+                    ...savedGame.players,
+                    [playerId]: playerState,
+                }
             };
 
             setGameData(gameToResume);
