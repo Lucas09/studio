@@ -73,15 +73,15 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const [adMessage, setAdMessage] = React.useState('');
     
     const isMultiplayer = gameData.mode !== 'Solo';
-    const playerState: Player = isMultiplayer ? gameData.players?.[playerId] : gameData;
+    const playerState: Player | undefined = isMultiplayer ? gameData.players?.[playerId] : gameData as unknown as Player;
     const opponentId = isMultiplayer ? Object.keys(gameData.players || {}).find(id => id !== playerId) : null;
-    const opponentState: Player = opponentId ? gameData.players?.[opponentId] : null;
+    const opponentState: Player | undefined = opponentId ? gameData.players?.[opponentId] : null;
 
     const { board, notes, timer, errors, hints } = playerState || {};
     const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(board));
     
-    const puzzle = gameData.puzzle ? (Array.isArray(gameData.puzzle) ? gameData.puzzle : convertObjectToBoard(gameData.puzzle)) : [];
-    const solution = gameData.solution ? (Array.isArray(gameData.solution) ? gameData.solution : convertObjectToBoard(gameData.solution)) : [];
+    const puzzle = gameData.puzzle;
+    const solution = gameData.solution;
     
     // Real-time updates for multiplayer
     React.useEffect(() => {
@@ -95,7 +95,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 
     // Timer logic
     React.useEffect(() => {
-        if (gameData.status !== 'active') return;
+        if (gameData.status !== 'active' || isGameWon || isGameOver) return;
         
         const interval = setInterval(() => {
             const newTime = (playerState?.timer || 0) + 1;
@@ -105,13 +105,13 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
                 gameService.updateGame(gameData.gameId, playerId, updates);
             } else {
                  const updatedGame = { ...gameData, ...updates };
-                 setGameData(updatedGame);
+                 setGameData(updatedGame as Game);
                  onSave(updatedGame);
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [gameData, playerState, onSave, isMultiplayer, gameData.gameId, playerId]);
+    }, [gameData, playerState, onSave, isMultiplayer, gameData.gameId, playerId, isGameWon, isGameOver]);
 
     React.useEffect(() => {
         if (playerState) {
@@ -131,7 +131,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             gameService.updateGame(gameData.gameId, playerId, updates);
         } else {
             const updatedGame = { ...gameData, ...updates };
-            setGameData(updatedGame);
+            setGameData(updatedGame as Game);
         }
     };
     
@@ -179,30 +179,32 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         if (!selectedCell || isGameWon || gameData.status === 'finished') return;
         const { row, col } = selectedCell;
         
+        let targetPlayerId = playerId;
         let currentBoard = board;
         let currentNotes = notes;
 
         // In co-op mode, players edit the same board.
-        if (gameData.mode === 'Co-op' && opponentState) {
-            currentBoard = opponentState.board;
-            currentNotes = opponentState.notes;
+        if (gameData.mode === 'Co-op' && opponentId) {
+            targetPlayerId = opponentId;
+            currentBoard = opponentState?.board;
+            currentNotes = opponentState?.notes;
         }
 
         if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return; 
 
         if (isNoteMode) {
-            const newNotes = currentNotes.map(r => r.map(c => new Set(c)));
+            const newNotes = notes.map(r => r.map(c => new Set(c)));
             const cellNotes = newNotes[row][col];
             if (cellNotes.has(num)) cellNotes.delete(num);
             else cellNotes.add(num);
-            updateGame({ notes: newNotes });
+            gameService.updateGame(gameData.gameId, playerId, { notes: newNotes });
         } else {
             let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
-            const newBoard = currentBoard.map(r => [...r]);
+            const newBoard = board.map(r => [...r]);
             newBoard[row][col] = num;
             
             if (solution && solution[row] && solution[row][col] === num) {
-                const newNotes = clearNotesForValue(currentNotes, row, col, num);
+                const newNotes = clearNotesForValue(notes, row, col, num);
                 setHighlightedNumber(num);
                 updateGame({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
             } else {
@@ -348,11 +350,5 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         </div>
     );
 };
-
-function convertObjectToBoard(boardObject) {
-    if (!boardObject) return Array(9).fill(null).map(() => Array(9).fill(null));
-    return Object.keys(boardObject).sort((a,b) => parseInt(a) - parseInt(b)).map(key => boardObject[key]);
-};
-
 
 export default GameBoard;

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Home, Calendar, User, Copy } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import type { Game, GameDifficulty, GameMode } from '@/services/game-service';
+import type { Game } from '@/services/game-service';
 import { gameService } from '@/services/game-service';
 import { sudokuGenerator } from '@/lib/sudoku';
 import { translations } from '@/lib/translations';
@@ -13,33 +13,7 @@ import GameBoard from '@/components/app/game-board';
 import DailyChallenges from '@/components/app/daily-challenges';
 import Profile from '@/components/app/profile';
 import { v4 as uuidv4 } from 'uuid';
-
-const MultiplayerLobby = ({ game, t }) => {
-    const { toast } = useToast();
-    const handleCopy = () => {
-        navigator.clipboard.writeText(game.gameId);
-        toast({ title: "Copied!", description: "Game code copied to clipboard." });
-    };
-
-    const playerIds = Object.keys(game.players || {});
-    
-    return (
-        <div className="p-6 bg-gray-50 text-gray-800 flex flex-col h-full items-center justify-center text-center">
-            <h1 className="text-3xl font-bold text-purple-600 mb-4">{t.gameLobby}</h1>
-            <p className="text-gray-600 mb-6">{t.shareCode}</p>
-            <div className="bg-white p-4 rounded-lg shadow-inner flex items-center justify-center space-x-4 mb-8">
-                <span className="text-2xl font-mono tracking-widest text-gray-700">{game.gameId}</span>
-                <button onClick={handleCopy} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><Copy/></button>
-            </div>
-            {playerIds.length < 2 ? (
-                <p className="text-lg text-gray-500 animate-pulse">{t.waitingForPlayer}</p>
-            ) : (
-                <p className="text-lg text-green-500 font-semibold">{t.playerJoined}</p>
-            )}
-        </div>
-    );
-};
-
+import MultiplayerLobby from '@/components/app/multiplayer-lobby';
 
 export default function App() {
     const [language, setLanguage] = React.useState('da');
@@ -63,11 +37,10 @@ export default function App() {
 
     const handleSaveGame = (currentGameState) => {
         if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
-            const { puzzle, solution, ...rest } = currentGameState;
              const gameToSave = {
-                ...rest,
-                puzzle: Array.isArray(puzzle) ? puzzle : Object.values(puzzle),
-                solution: Array.isArray(solution) ? solution : Object.values(solution),
+                ...currentGameState,
+                puzzle: currentGameState.puzzle,
+                solution: currentGameState.solution,
                 notes: currentGameState.notes ? gameService.serializeNotes(currentGameState.notes) : [],
             };
             localStorage.setItem('savedSudokuGame', JSON.stringify(gameToSave));
@@ -111,20 +84,38 @@ export default function App() {
 
     const handleCreateMultiplayerGame = async ({ difficulty, mode }) => {
         if (!playerId) return;
-        const newGame = await gameService.createGame(difficulty, mode, playerId);
-        if (newGame) {
-            setGameData(newGame);
-            setActiveView('multiplayerLobby');
+        try {
+            const newGame = await gameService.createGame(difficulty, mode, playerId);
+            if (newGame) {
+                setGameData(newGame);
+                setActiveView('multiplayerLobby');
+            }
+        } catch (error) {
+            console.error("Failed to create multiplayer game:", error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to create game. Please try again.",
+            });
         }
     };
 
     const handleJoinMultiplayerGame = async (gameId: string) => {
         if (!playerId) return;
-        const joinedGame = await gameService.joinGame(gameId, playerId);
-        if (joinedGame) {
-            setGameData(joinedGame);
-            setActiveView('game');
-        } else {
+        try {
+            const joinedGame = await gameService.joinGame(gameId, playerId);
+            if (joinedGame) {
+                setGameData(joinedGame);
+                setActiveView('game');
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: t.gameNotFound,
+                });
+            }
+        } catch(error) {
+             console.error("Failed to join multiplayer game:", error);
             toast({
                 variant: "destructive",
                 title: "Error",
