@@ -3,7 +3,7 @@
 import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, BrainCircuit, Repeat, Video } from 'lucide-react';
 import type { Game, Player } from '@/services/game-service';
-import { gameService } from '@/services/game-service';
+import { getGameUpdates, updateGame, endGame } from '@/services/game-service';
 import { getAdaptiveHint } from '@/ai/flows/adaptive-hints';
 import type { AdaptiveHintResponse } from '@/ai/schema/adaptive-hints';
 import { sudokuGenerator } from '@/lib/sudoku';
@@ -98,7 +98,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     // Real-time updates for multiplayer
     React.useEffect(() => {
         if (isMultiplayer && gameData.gameId) {
-            const unsubscribe = gameService.getGameUpdates(gameData.gameId, (updatedGame) => {
+            const unsubscribe = getGameUpdates(gameData.gameId, (updatedGame) => {
                 if (updatedGame) {
                     setGameData(updatedGame);
                      if (updatedGame.status === 'finished') {
@@ -122,8 +122,8 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             const newTime = (playerState.timer || 0) + 1;
             const updates: Partial<Player> = { timer: newTime };
             
-            if (isMultiplayer) {
-                gameService.updateGame(gameData.gameId, playerId, updates);
+            if (isMultiplayer && gameData.gameId) {
+                updateGame(gameData.gameId, playerId, updates);
             } else {
                  const updatedPlayerState = { ...playerState, ...updates };
                  const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: updatedPlayerState }};
@@ -145,15 +145,15 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
      React.useEffect(() => {
         if (errors >= 3) {
             setIsGameOver(true);
-            if (isMultiplayer) {
-                gameService.endGame(gameData.gameId, 'lost');
+            if (isMultiplayer && gameData.gameId) {
+                endGame(gameData.gameId, 'lost');
             }
         }
     }, [errors, isMultiplayer, gameData.gameId]);
 
-    const updateGame = (updates: Partial<Player>) => {
-        if (isMultiplayer) {
-            gameService.updateGame(gameData.gameId, playerId, updates);
+    const updateGameState = (updates: Partial<Player>) => {
+        if (isMultiplayer && gameData.gameId) {
+            updateGame(gameData.gameId, playerId, updates);
         } else {
              const updatedPlayerState = { ...playerState, ...updates };
              const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: updatedPlayerState }};
@@ -181,8 +181,8 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }
 
         setIsGameWon(true);
-        if(isMultiplayer) {
-             gameService.endGame(gameData.gameId, 'win', playerId);
+        if(isMultiplayer && gameData.gameId) {
+             endGame(gameData.gameId, 'win', playerId);
         }
     };
 
@@ -236,7 +236,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             } else {
                 cellNotes.add(num);
             }
-            updateGame({ notes: newNotes });
+            updateGameState({ notes: newNotes });
         } else {
             let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
             const newBoard = board.map(r => [...r]);
@@ -245,11 +245,11 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             if (solution[row][col] === num) {
                 const newNotes = clearNotesForValue(notes, row, col, num);
                 setHighlightedNumber(num);
-                updateGame({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
+                updateGameState({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
             } else {
                 newErrorCells.push({ row, col });
                 const newErrors = errors + 1;
-                updateGame({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
+                updateGameState({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
             }
         }
     };
@@ -268,7 +268,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }
 
         const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
-        updateGame({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
+        updateGameState({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
     };
 
     const handleHint = () => {
@@ -282,7 +282,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
                 newBoard[r][c] = hintNum;
                 const newNotes = clearNotesForValue(notes, r, c, hintNum);
                 const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === r && cell.col === c));
-                updateGame({ board: newBoard, hints: hints - 1, notes: newNotes, errorCells: newErrorCells });
+                updateGameState({ board: newBoard, hints: hints - 1, notes: newNotes, errorCells: newErrorCells });
             }
         } else if (!isGameWon) {
             setAdMessage(t.adForHint);
@@ -315,10 +315,10 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const handleAdConfirm = (type) => {
         setIsAdPlaying(false);
         setTimeout(() => {
-            if(type === 'hint') updateGame({ hints: (hints || 0) + 1 });
+            if(type === 'hint') updateGameState({ hints: (hints || 0) + 1 });
             else if (type === 'life') {
                 setIsGameOver(false);
-                updateGame({ errors: Math.min(2, errors) });
+                updateGameState({ errors: Math.min(2, errors) });
             }
         }, 1500);
     };

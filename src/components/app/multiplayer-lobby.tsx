@@ -4,7 +4,7 @@ import React from 'react';
 import { Copy, Users, Sword } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import type { Game } from '@/services/game-service';
-import { gameService } from '@/services/game-service';
+import { getGameUpdates, startGame } from '@/services/game-service';
 
 const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => {
     const { toast } = useToast();
@@ -12,7 +12,7 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => 
     // Listen for game updates
     React.useEffect(() => {
         if (game?.gameId) {
-            const unsubscribe = gameService.getGameUpdates(game.gameId, (updatedGame) => {
+            const unsubscribe = getGameUpdates(game.gameId, (updatedGame) => {
                 if (updatedGame) {
                     setGameData(updatedGame);
                     // If game becomes active, switch to game board view
@@ -38,7 +38,7 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => 
     const handleStartGame = () => {
         if(game?.gameId && Object.keys(game.players).length > 1) {
             // The creator of the game should be the one starting it.
-             gameService.startGame(game.gameId);
+             startGame(game.gameId);
         }
     };
     
