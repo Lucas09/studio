@@ -247,7 +247,7 @@ const Confetti = () => {
 const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const [board, setBoard] = React.useState(JSON.parse(JSON.stringify(gameData.board || gameData.puzzle)));
     const [notes, setNotes] = React.useState(() => {
-        if (gameData.notes) {
+        if (gameData.notes && gameData.notes.length > 0) {
             return gameData.notes.map(row => row.map(cellNotes => new Set(cellNotes)));
         }
         return Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
@@ -665,19 +665,19 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
 
 const Profile = ({ t, language, setLanguage }) => {
     const stats = {
-        'easy': { solved: 12, bestTime: '03:45', avgTime: '05:12' },
-        'medium': { solved: 8, bestTime: '07:11', avgTime: '09:34' },
-        'hard': { solved: 3, bestTime: '15:23', avgTime: '18:01' },
-        'veryhard': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
-        'impossible': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
+        'Let': { solved: 12, bestTime: '03:45', avgTime: '05:12' },
+        'Medium': { solved: 8, bestTime: '07:11', avgTime: '09:34' },
+        'Svær': { solved: 3, bestTime: '15:23', avgTime: '18:01' },
+        'Meget svær': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
+        'Umulig': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
     };
 
     const difficulties = {
-        'easy': 'Let',
-        'medium': 'Medium',
-        'hard': 'Svær',
-        'veryhard': 'Meget svær',
-        'impossible': 'Umulig'
+        'Let': t.easy,
+        'Medium': t.medium,
+        'Svær': t.hard,
+        'Meget svær': t.veryhard,
+        'Umulig': t.impossible
     };
 
     return (
@@ -692,7 +692,7 @@ const Profile = ({ t, language, setLanguage }) => {
                 <div className="space-y-3">
                     {Object.entries(stats).map(([difficulty, data]) => (
                         <div key={difficulty} className="bg-gray-100 p-4 rounded-lg">
-                            <h3 className="font-bold text-blue-600">{t[difficulty]}</h3>
+                            <h3 className="font-bold text-blue-600">{difficulties[difficulty]}</h3>
                             <div className="flex justify-between items-center text-sm mt-2 text-gray-600 flex-wrap gap-2">
                                 <span>{t.solved}: <span className="font-semibold text-gray-800">{data.solved}</span></span>
                                 <span>{t.bestTime}: <span className="font-semibold text-gray-800">{data.bestTime}</span></span>
@@ -740,7 +740,8 @@ export default function App() {
     const startGame = (difficulty, mode, gameId = null) => {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
         const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
-        const newGameData = { puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode, gameId, board: puzzle.map(row => [...row]), notes: [], errors: 0, timer: 0 };
+        const initialNotes = Array(9).fill(0).map(() => Array(9).fill(0).map(() => []));
+        const newGameData = { puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode, gameId, board: puzzle.map(row => [...row]), notes: initialNotes, errors: 0, timer: 0 };
         setGameData(newGameData);
         setActiveView('game');
         if (mode === 'Alene') {
