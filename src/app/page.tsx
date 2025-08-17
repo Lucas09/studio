@@ -98,29 +98,45 @@ const App = () => {
         const savedGameString = localStorage.getItem('savedSudokuGame');
         if (savedGameString) {
             const savedGame = JSON.parse(savedGameString);
+            
+            // Critical fix: Ensure player data is correctly parsed from strings back to game format
             Object.values(savedGame.players).forEach((player: any) => {
-                if(player.notes) {
+                if(player.notes && typeof player.notes === 'string') {
                     player.notes = sudokuGenerator.stringToNotes(player.notes);
                 }
+                if(player.board && typeof player.board === 'string') {
+                    player.board = sudokuGenerator.stringToBoard(player.board);
+                }
             });
-            setGameData(savedGame);
+            
+            // Critical fix: Reconstruct the full game object for the state
+            const gameToResume: Game = {
+                ...savedGame,
+                puzzle: sudokuGenerator.stringToBoard(savedGame.puzzle),
+                solution: sudokuGenerator.stringToBoard(savedGame.solution),
+            };
+
+            setGameData(gameToResume);
             setView('game');
         }
     };
 
     const handleSaveGame = (currentGameData: Game | null) => {
-        if (currentGameData && currentGameData.mode === 'Solo') {
+        if (currentGameData && currentGameData.mode === 'Solo' && playerId && currentGameData.players[playerId]) {
+            const playerState = currentGameData.players[playerId];
+            // Create a savable version of the game data
             const savableGameData = {
                 ...currentGameData,
-                players: Object.fromEntries(
-                    Object.entries(currentGameData.players).map(([pid, pdata]) => [
-                        pid,
-                        {
-                            ...pdata,
-                            notes: sudokuGenerator.notesToString(pdata.notes),
-                        },
-                    ])
-                ),
+                 // board and notes must be converted to strings for localStorage
+                puzzle: sudokuGenerator.boardToString(currentGameData.puzzle),
+                solution: sudokuGenerator.boardToString(currentGameData.solution),
+                players: {
+                    [playerId]: {
+                        ...playerState,
+                        board: sudokuGenerator.boardToString(playerState.board),
+                        notes: sudokuGenerator.notesToString(playerState.notes),
+                    }
+                },
             };
             localStorage.setItem('savedSudokuGame', JSON.stringify(savableGameData));
         }
