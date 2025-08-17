@@ -61,6 +61,7 @@ const translations = {
         
         // Daily Challenges
         dailyChallengesTitle: 'Daglige Udfordringer',
+        startChallenge: 'Start Udfordring',
         
         // Profile
         statistics: 'Statistik',
@@ -127,6 +128,7 @@ const translations = {
 
         // Daily Challenges
         dailyChallengesTitle: 'Daily Challenges',
+        startChallenge: 'Start Challenge',
 
         // Profile
         statistics: 'Statistics',
@@ -277,10 +279,14 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     }, [isGameWon, board, notes, errors, hints, errorCells, gameData, onSave]);
 
     const checkWinCondition = (currentBoard) => {
-        const isBoardFull = !currentBoard.flat().includes(0);
-        if (isBoardFull) {
-            setIsGameWon(true);
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (currentBoard[r][c] === 0 || currentBoard[r][c] === null) {
+                    return; 
+                }
+            }
         }
+        setIsGameWon(true);
     };
 
     const formatTime = (seconds) => {
@@ -586,6 +592,7 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
 };
 
 const DailyChallenges = ({ onStartDailyChallenge, t }) => {
+    const [selectedDay, setSelectedDay] = React.useState(null);
     const today = new Date();
     const firstDayOfMonth = (new Date(today.getFullYear(), today.getMonth(), 1).getDay() + 6) % 7;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -594,10 +601,14 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
     const emptyDays = Array.from({length: firstDayOfMonth});
     const monthName = t.months[today.getMonth()];
 
+    const handleDayClick = (day) => {
+        setSelectedDay(day);
+    };
+
     return (
         <div className="p-4 sm:p-6 bg-gray-50 text-gray-800 flex flex-col h-full">
             <h1 className="text-3xl font-bold text-center text-blue-600 mb-6">{t.dailyChallengesTitle}</h1>
-            <div className="bg-white p-4 rounded-2xl shadow-md">
+            <div className="bg-white p-4 rounded-2xl shadow-md flex-grow flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                     <button className="p-2 rounded-full hover:bg-gray-200"><ArrowLeft /></button>
                     <h2 className="text-xl font-semibold">{monthName} {today.getFullYear()}</h2>
@@ -610,12 +621,17 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
                         const isCompleted = completedChallenges.includes(day);
                         const isToday = day === today.getDate();
                         const isFuture = day > today.getDate();
+                        const isSelected = day === selectedDay;
+
                         return (<button 
                                     key={day} 
-                                    onClick={() => onStartDailyChallenge(day)}
+                                    onClick={() => handleDayClick(day)}
                                     disabled={isFuture}
                                     className={`aspect-square rounded-lg flex flex-col justify-center items-center transition-colors 
-                                        ${isFuture ? 'bg-gray-100 text-gray-400' : isToday ? 'bg-blue-500 text-white ring-2 ring-blue-300' : 'bg-gray-200 hover:bg-gray-300'} 
+                                        ${isFuture ? 'bg-gray-100 text-gray-400' : 
+                                          isSelected ? 'bg-yellow-400 text-white ring-2 ring-yellow-500' :
+                                          isToday ? 'bg-blue-500 text-white ring-2 ring-blue-300' : 
+                                          'bg-gray-200 hover:bg-gray-300'} 
                                         ${isCompleted ? 'bg-green-500 text-white' : ''}
                                         disabled:opacity-50 disabled:cursor-not-allowed
                                     `}>
@@ -624,6 +640,16 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
                             </button>)
                     })}
                 </div>
+                 {selectedDay && (
+                    <div className="mt-auto pt-4">
+                        <button 
+                            onClick={() => onStartDailyChallenge(selectedDay)} 
+                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105"
+                        >
+                            {t.startChallenge}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -697,7 +723,7 @@ export default function App() {
     const startGame = (difficulty, mode, gameId = null) => {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
         const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
-        const newGameData = { puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode, gameId };
+        const newGameData = { puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode, gameId, board: puzzle.map(row => [...row]), notes: [], errors: 0, timer: 0 };
         setGameData(newGameData);
         setActiveView('game');
         if (mode === 'Alene') {
