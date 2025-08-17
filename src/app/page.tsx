@@ -325,7 +325,9 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
             if (gameData.solution[row][col] === num) {
                 setErrorCells(newErrorCells);
                 clearNotesForValue(row, col, num);
-                setNumberCounts(prev => ({ ...prev, [num]: (prev[num] || 0) + 1 }));
+                const newCounts = { ...numberCounts };
+                newCounts[num]++;
+                setNumberCounts(newCounts);
                 setHighlightedNumber(num);
                 checkWinCondition(newBoard);
             } else {
@@ -367,7 +369,9 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                 newBoard[r][c] = hintNum;
                 setBoard(newBoard);
                 setHints(h => h - 1);
-                setNumberCounts(prev => ({ ...prev, [hintNum]: (prev[hintNum] || 0) + 1 }));
+                const newCounts = { ...numberCounts };
+                newCounts[hintNum]++;
+                setNumberCounts(newCounts);
                 clearNotesForValue(r, c, hintNum);
                 setErrorCells(errorCells.filter(cell => !(cell.row === r && cell.col === c)));
                 checkWinCondition(newBoard);
