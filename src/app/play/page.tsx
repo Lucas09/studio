@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SudokuGenerator, type Difficulty } from '@/lib/sudoku';
 import SudokuBoard from '@/components/game/sudoku-board';
@@ -17,7 +17,7 @@ import { Loader2, Home, RotateCw, Lightbulb } from 'lucide-react';
 type Grid = (number | null)[][];
 type Notes = Record<string, Set<number>>;
 
-export default function PlayPage() {
+function PlayPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const difficulty = (searchParams.get('difficulty') || 'easy') as Difficulty;
@@ -57,16 +57,18 @@ export default function PlayPage() {
 
   useEffect(() => {
     setIsClient(true);
-    generateNewGame(difficulty);
+    if (difficulty) {
+      generateNewGame(difficulty);
+    }
   }, [difficulty, generateNewGame]);
 
   useEffect(() => {
-    if (isGameOver) return;
+    if (isGameOver || isWin) return;
     const timer = setInterval(() => {
       setSeconds(s => s + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isGameOver]);
+  }, [isGameOver, isWin]);
 
   const handleCellClick = (row: number, col: number) => {
     if (puzzle && puzzle[row][col] === null) {
@@ -104,13 +106,16 @@ export default function PlayPage() {
       }
       
       if (newGrid[row][col] !== solution[row][col]) {
-        setLives(l => l - 1);
+        setLives(l => {
+          const newLives = l - 1;
+          if (newLives <= 0) {
+            setIsGameOver(true);
+            setIsWin(false);
+          }
+          return newLives;
+        });
         setShakeCell({row, col});
         setTimeout(() => setShakeCell(null), 500);
-        if (lives - 1 <= 0) {
-          setIsGameOver(true);
-          setIsWin(false);
-        }
       } else {
         // Check for win condition
         let isSolved = true;
@@ -124,7 +129,6 @@ export default function PlayPage() {
           if (!isSolved) break;
         }
         if (isSolved) {
-          setIsGameOver(true);
           setIsWin(true);
         }
       }
@@ -228,8 +232,11 @@ export default function PlayPage() {
       </div>
 
       <GameOverDialog
-        isOpen={isGameOver}
-        onClose={() => setIsGameOver(false)}
+        isOpen={isGameOver || isWin}
+        onClose={() => {
+          setIsGameOver(false);
+          setIsWin(false);
+        }}
         isWin={isWin}
         time={seconds}
         onNewGame={() => generateNewGame(difficulty)}
@@ -256,4 +263,12 @@ export default function PlayPage() {
       </AlertDialog>
     </div>
   );
+}
+
+export default function PlayPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
+      <PlayPageContent />
+    </Suspense>
+  )
 }
