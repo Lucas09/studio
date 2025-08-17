@@ -13,6 +13,8 @@ export interface Player {
     notes: any; // Serialized Set[][]
     errors: number;
     timer: number;
+    errorCells?: { row: number, col: number }[];
+    hints?: number;
 }
 
 export interface Game {
@@ -36,18 +38,24 @@ const deserializeNotes = (serializedNotes) => {
     if (serializedNotes && Array.isArray(serializedNotes)) {
         return serializedNotes.map(row => row.map(cellData => new Set(cellData)));
     }
+     // If notes are stored as an object
+    if (serializedNotes && typeof serializedNotes === 'object' && !Array.isArray(serializedNotes)) {
+        const board = convertObjectToBoard(serializedNotes as any) as any[][];
+        return board.map(row => row.map(cellData => new Set(cellData)));
+    }
     return Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
 };
 
-const convertBoardToObject = (board: (number|null)[][]) => {
+const convertBoardToObject = (board: (any)[][]) => {
+    if (!board) return {};
     return board.reduce((acc, row, i) => {
         acc[i] = row;
         return acc;
     }, {});
 };
 
-const convertObjectToBoard = (boardObject: {[key: number]: (number|null)[]}) => {
-    if (!boardObject) return Array(9).fill(null).map(() => Array(9).fill(null));
+const convertObjectToBoard = (boardObject: {[key: string]: any[]}) => {
+    if (!boardObject || Object.keys(boardObject).length === 0) return Array(9).fill(null).map(() => Array(9).fill(null));
     return Object.keys(boardObject).sort((a,b) => parseInt(a) - parseInt(b)).map(key => boardObject[key]);
 };
 
@@ -55,6 +63,17 @@ const convertObjectToBoard = (boardObject: {[key: number]: (number|null)[]}) => 
 export const gameService = {
     createGame: async (difficulty: GameDifficulty, mode: GameMode, playerId: string): Promise<Game> => {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
+        
+        const initialPlayerState: Player = {
+            id: playerId,
+            board: puzzle,
+            notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
+            errors: 0,
+            timer: 0,
+            hints: 3,
+            errorCells: []
+        };
+        
         const newGame: Game = {
             difficulty,
             mode,
@@ -62,32 +81,28 @@ export const gameService = {
             solution: convertBoardToObject(solution),
             status: 'waiting',
             players: {
-                [playerId]: {
-                    id: playerId,
-                    board: puzzle,
-                    notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
-                    errors: 0,
-                    timer: 0,
-                }
+                [playerId]: initialPlayerState,
             },
             createdAt: serverTimestamp(),
         };
 
         const gameCollection = collection(db, "games");
+        
+        // Prepare player data for Firestore
+        const firestorePlayerData = {
+            ...initialPlayerState,
+            board: convertBoardToObject(initialPlayerState.board),
+            notes: convertBoardToObject(serializeNotes(initialPlayerState.notes))
+        };
+
         const gameRef = await addDoc(gameCollection, {
             ...newGame,
-            puzzle: newGame.puzzle,
-            solution: newGame.solution,
             players: {
-                [playerId]: {
-                    ...newGame.players[playerId],
-                    board: convertBoardToObject(newGame.players[playerId].board),
-                    notes: serializeNotes(newGame.players[playerId].notes)
-                }
+                [playerId]: firestorePlayerData
             }
         });
         
-        return { ...newGame, gameId: gameRef.id };
+        return { ...newGame, gameId: gameRef.id, players: { [playerId]: initialPlayerState } };
     },
 
     joinGame: async (gameId: string, playerId: string): Promise<Game | null> => {
@@ -108,18 +123,23 @@ export const gameService = {
             notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
             errors: 0,
             timer: 0,
+            hints: 3,
+            errorCells: []
         };
 
         await updateDoc(gameRef, {
             [`players.${playerId}`]: {
                  ...newPlayer,
                  board: convertBoardToObject(newPlayer.board),
-                 notes: serializeNotes(newPlayer.notes)
+                 notes: convertBoardToObject(serializeNotes(newPlayer.notes))
             },
             status: 'active'
         });
 
-        return { ...gameData, gameId: gameRef.id, puzzle: puzzle };
+        // Re-fetch the game data to return the latest state
+        const updatedGameSnap = await getDoc(gameRef);
+        const updatedGameData = updatedGameSnap.data() as Game;
+        return { ...updatedGameData, gameId: updatedGameSnap.id };
     },
 
     getGameUpdates: (gameId: string, callback: (game: Game) => void) => {
@@ -127,22 +147,26 @@ export const gameService = {
         return onSnapshot(gameRef, (docSnap) => {
             if (docSnap.exists()) {
                 const gameData = docSnap.data() as Game;
-                const puzzle = convertObjectToBoard(gameData.puzzle);
-                const solution = convertObjectToBoard(gameData.solution) as number[][];
                 
                 const players = {};
                 if (gameData.players) {
-                    for(const playerId in gameData.players) {
-                        const player = gameData.players[playerId];
-                        players[playerId] = {
+                    for(const pId in gameData.players) {
+                        const player = gameData.players[pId];
+                        players[pId] = {
                             ...player,
-                            board: convertObjectToBoard(player.board),
+                            board: convertObjectToBoard(player.board as any),
                             notes: deserializeNotes(player.notes)
                         }
                     }
                 }
 
-                callback({ ...gameData, gameId: docSnap.id, puzzle, solution, players });
+                callback({ 
+                    ...gameData, 
+                    gameId: docSnap.id, 
+                    puzzle: convertObjectToBoard(gameData.puzzle), 
+                    solution: convertObjectToBoard(gameData.solution as any),
+                    players 
+                });
             } else {
                 console.error("Game not found during update");
             }
@@ -158,7 +182,7 @@ export const gameService = {
                  value = convertBoardToObject(value as (number|null)[][]);
             }
             if (key === 'notes') {
-                value = serializeNotes(value);
+                value = convertBoardToObject(serializeNotes(value));
             }
             updateData[`players.${playerId}.${key}`] = value;
         }
