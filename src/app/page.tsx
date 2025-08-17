@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import { Home, Calendar, User, Copy } from 'lucide-react';
+import { Home, Calendar, User, Copy, Download } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import type { Game } from '@/services/game-service';
 import { gameService } from '@/services/game-service';
@@ -14,6 +14,8 @@ import DailyChallenges from '@/components/app/daily-challenges';
 import Profile from '@/components/app/profile';
 import { v4 as uuidv4 } from 'uuid';
 import MultiplayerLobby from '@/components/app/multiplayer-lobby';
+import DownloadPage from '@/components/app/download-page';
+
 
 export default function App() {
     const [language, setLanguage] = React.useState('da');
@@ -37,12 +39,11 @@ export default function App() {
 
     const handleSaveGame = (currentGameState) => {
         if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
-            const { puzzle, solution } = currentGameState;
-             const gameToSave = {
+            const gameToSave = {
                 ...currentGameState,
-                 puzzle: Array.isArray(puzzle) ? puzzle : Object.values(puzzle),
-                 solution: Array.isArray(solution) ? solution : Object.values(solution),
-                 notes: currentGameState.notes ? sudokuGenerator.notesToString(currentGameState.notes) : "[]",
+                 puzzle: sudokuGenerator.boardToString(currentGameState.puzzle),
+                 solution: sudokuGenerator.boardToString(currentGameState.solution),
+                 notes: sudokuGenerator.notesToString(currentGameState.notes),
             };
             localStorage.setItem('savedSudokuGame', JSON.stringify(gameToSave));
         }
@@ -78,22 +79,21 @@ export default function App() {
             const savedGameJSON = localStorage.getItem('savedSudokuGame');
             if (savedGameJSON) {
                 const savedGameData = JSON.parse(savedGameJSON);
-                const soloPlayer = savedGameData.players?.solo || {
-                     board: savedGameData.board,
-                     notes: savedGameData.notes,
-                     errors: savedGameData.errors,
-                     timer: savedGameData.timer,
-                     hints: savedGameData.hints,
-                     errorCells: savedGameData.errorCells,
+                 const soloPlayer = {
+                     board: sudokuGenerator.stringToBoard(savedGameData.puzzle),
+                     notes: sudokuGenerator.stringToNotes(savedGameData.notes),
+                     errors: savedGameData.errors || 0,
+                     timer: savedGameData.timer || 0,
+                     hints: savedGameData.hints || 3,
+                     errorCells: savedGameData.errorCells || [],
                 };
                 
                 setGameData({
                     ...savedGameData,
+                    puzzle: sudokuGenerator.stringToBoard(savedGameData.puzzle),
+                    solution: sudokuGenerator.stringToBoard(savedGameData.solution),
                      players: {
-                         'solo': {
-                             ...soloPlayer,
-                             notes: savedGameData.notes ? sudokuGenerator.stringToNotes(savedGameData.notes) : Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))
-                         }
+                         'solo': soloPlayer
                      }
                 });
                 setActiveView('game');
@@ -168,6 +168,8 @@ export default function App() {
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile': 
                 return <Profile t={t} language={language} setLanguage={setLanguage} />;
+            case 'download':
+                return <DownloadPage />;
             case 'lobby': 
             default: 
                 return <Lobby 
@@ -201,6 +203,9 @@ export default function App() {
                     <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
                         <User /><span className="text-xs mt-1 font-medium">{t.profile}</span>
                     </div>
+                    <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
+                        <Download /><span className="text-xs mt-1 font-medium">Download</span>
+                    </div>
               </nav>
             </div>
         );
@@ -216,6 +221,7 @@ export default function App() {
                     <NavItem view="lobby" icon={<Home />} label={t.home} />
                     <NavItem view="daily" icon={<Calendar />} label={t.challenges} />
                     <NavItem view="profile" icon={<User />} label={t.profile} />
+                    <NavItem view="download" icon={<Download />} label="Download" />
                 </nav>
             )}
         </div>
