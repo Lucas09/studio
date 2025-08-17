@@ -1,5 +1,6 @@
 
-// --- Utility functions for Sudoku generation ---
+
+// --- Utility functions for Sudoku generation and manipulation ---
 export const sudokuGenerator = {
     generate: (difficulty) => {
         let puzzle = Array(9).fill(null).map(() => Array(9).fill(null));
@@ -64,5 +65,30 @@ export const sudokuGenerator = {
             }
         }
         return false;
+    },
+    // Converts a 2D array board to a flat string
+    boardToString: (board) => {
+        return board.map(row => row.map(cell => cell === null ? '.' : cell).join('')).join('');
+    },
+    // Converts a flat string to a 2D array board
+    stringToBoard: (boardString) => {
+        const board = [];
+        for (let i = 0; i < 9; i++) {
+            const row = boardString.substring(i * 9, (i + 1) * 9).split('').map(char => char === '.' ? null : parseInt(char));
+            board.push(row);
+        }
+        return board;
+    },
+    // Serializes the notes Set[][] to a string
+    notesToString: (notes) => {
+        return JSON.stringify(notes.map(row => row.map(cellSet => Array.from(cellSet))));
+    },
+    // Deserializes a string back into the notes Set[][]
+    stringToNotes: (notesString) => {
+        if (!notesString) {
+            return Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
+        }
+        const parsedArray = JSON.parse(notesString);
+        return parsedArray.map(row => row.map(cellArray => new Set(cellArray)));
     }
 };

@@ -6,8 +6,22 @@ import { useToast } from "@/hooks/use-toast";
 import type { Game } from '@/services/game-service';
 import { gameService } from '@/services/game-service';
 
-const MultiplayerLobby = ({ game, t }) => {
+const MultiplayerLobby = ({ game, t, setActiveView, setGameData }) => {
     const { toast } = useToast();
+
+    // Listen for game updates
+    React.useEffect(() => {
+        if (game?.gameId) {
+            const unsubscribe = gameService.getGameUpdates(game.gameId, (updatedGame) => {
+                setGameData(updatedGame);
+                // If game becomes active, switch to game board view
+                if (updatedGame.status === 'active' && Object.keys(updatedGame.players).length === 2) {
+                    setActiveView('game');
+                }
+            });
+            return () => unsubscribe();
+        }
+    }, [game?.gameId, setGameData, setActiveView]);
 
     const handleCopyCode = () => {
         if (game?.gameId) {
@@ -20,7 +34,7 @@ const MultiplayerLobby = ({ game, t }) => {
     };
 
     const handleStartGame = () => {
-        if(game?.gameId) {
+        if(game?.gameId && Object.keys(game.players).length === 2) {
             gameService.updateGame(game.gameId, Object.keys(game.players)[0], { status: 'active' });
         }
     };

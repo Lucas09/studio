@@ -73,7 +73,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const [adMessage, setAdMessage] = React.useState('');
     
     const isMultiplayer = gameData.mode !== 'Solo';
-    const playerState: Player | undefined = isMultiplayer ? gameData.players?.[playerId] : gameData as unknown as Player;
+    const playerState: Player | undefined = isMultiplayer ? gameData.players?.[playerId] : gameData.players?.['solo'];
     const opponentId = isMultiplayer ? Object.keys(gameData.players || {}).find(id => id !== playerId) : null;
     const opponentState: Player | undefined = opponentId ? gameData.players?.[opponentId] : null;
 
@@ -104,7 +104,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             if (isMultiplayer) {
                 gameService.updateGame(gameData.gameId, playerId, updates);
             } else {
-                 const updatedGame = { ...gameData, ...updates };
+                 const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: { ...playerState, ...updates }}};
                  setGameData(updatedGame as Game);
                  onSave(updatedGame);
             }
@@ -130,8 +130,9 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         if (isMultiplayer) {
             gameService.updateGame(gameData.gameId, playerId, updates);
         } else {
-            const updatedGame = { ...gameData, ...updates };
-            setGameData(updatedGame as Game);
+             const updatedPlayerState = { ...playerState, ...updates };
+             const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: updatedPlayerState }};
+             setGameData(updatedGame as Game);
         }
     };
     
@@ -176,20 +177,9 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     };
 
     const handleNumberInput = (num) => {
-        if (!selectedCell || isGameWon || gameData.status === 'finished') return;
+        if (!selectedCell || isGameWon || gameData.status === 'finished' || !playerState) return;
         const { row, col } = selectedCell;
         
-        let targetPlayerId = playerId;
-        let currentBoard = board;
-        let currentNotes = notes;
-
-        // In co-op mode, players edit the same board.
-        if (gameData.mode === 'Co-op' && opponentId) {
-            targetPlayerId = opponentId;
-            currentBoard = opponentState?.board;
-            currentNotes = opponentState?.notes;
-        }
-
         if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return; 
 
         if (isNoteMode) {
@@ -197,7 +187,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             const cellNotes = newNotes[row][col];
             if (cellNotes.has(num)) cellNotes.delete(num);
             else cellNotes.add(num);
-            gameService.updateGame(gameData.gameId, playerId, { notes: newNotes });
+            updateGame({ notes: newNotes });
         } else {
             let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
             const newBoard = board.map(r => [...r]);
@@ -216,7 +206,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     };
     
     const handleErase = () => {
-        if (!selectedCell || isGameWon || gameData.status === 'finished') return;
+        if (!selectedCell || isGameWon || gameData.status === 'finished' || !playerState) return;
         const { row, col } = selectedCell;
         if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return;
         
@@ -252,7 +242,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const handleAdConfirm = (type) => {
         setIsAdPlaying(false);
         setTimeout(() => {
-            if(type === 'hint') updateGame({ hints: 1 });
+            if(type === 'hint') updateGame({ hints: (hints || 0) + 1 });
             else if (type === 'life') {
                 setIsGameOver(false);
                 updateGame({ errors: 2 });
@@ -339,7 +329,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 
             <div className="mt-4">
                 <div className="flex justify-center items-center space-x-4 mb-4">
-                    <button onClick={handleHint} className="flex flex-col items-center p-3 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50" disabled={hints === 0}><Lightbulb className="text-yellow-500"/><span className="text-xs font-semibold mt-1">{t.hint} ({hints})</span></button>
+                    <button onClick={handleHint} className="flex flex-col items-center p-3 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50" disabled={!hints || hints === 0}><Lightbulb className="text-yellow-500"/><span className="text-xs font-semibold mt-1">{t.hint} ({hints})</span></button>
                     <button onClick={handleErase} className="flex flex-col items-center p-3 rounded-lg bg-gray-200 hover:bg-gray-300"><Eraser /><span className="text-xs font-semibold mt-1">{t.erase}</span></button>
                     <button onClick={() => setIsNoteMode(!isNoteMode)} className={`flex flex-col items-center p-3 rounded-lg transition-colors ${isNoteMode ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}><BrainCircuit /><span className="text-xs font-semibold mt-1">{t.notes}</span></button>
                 </div>

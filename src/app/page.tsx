@@ -37,11 +37,12 @@ export default function App() {
 
     const handleSaveGame = (currentGameState) => {
         if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
+            const { puzzle, solution } = currentGameState;
              const gameToSave = {
                 ...currentGameState,
-                puzzle: currentGameState.puzzle,
-                solution: currentGameState.solution,
-                notes: currentGameState.notes ? gameService.serializeNotes(currentGameState.notes) : [],
+                 puzzle: Array.isArray(puzzle) ? puzzle : Object.values(puzzle),
+                 solution: Array.isArray(solution) ? solution : Object.values(solution),
+                 notes: currentGameState.notes ? gameService.serializeNotes(currentGameState.notes) : "[]",
             };
             localStorage.setItem('savedSudokuGame', JSON.stringify(gameToSave));
         }
@@ -54,14 +55,18 @@ export default function App() {
             solution, 
             difficulty, 
             mode,
-            board: puzzle.map(row => [...row]), 
-            notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
-            errors: 0, 
-            timer: 0,
-            hints: 3,
-            errorCells: [],
             status: 'active',
-            players: {},
+            players: {
+                'solo': {
+                    id: 'solo',
+                    board: puzzle.map(row => [...row]), 
+                    notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
+                    errors: 0, 
+                    timer: 0,
+                    hints: 3,
+                    errorCells: [],
+                }
+            }
         };
         setGameData(newGameData);
         setActiveView('game');
@@ -73,9 +78,23 @@ export default function App() {
             const savedGameJSON = localStorage.getItem('savedSudokuGame');
             if (savedGameJSON) {
                 const savedGameData = JSON.parse(savedGameJSON);
+                const soloPlayer = savedGameData.players?.solo || {
+                     board: savedGameData.board,
+                     notes: savedGameData.notes,
+                     errors: savedGameData.errors,
+                     timer: savedGameData.timer,
+                     hints: savedGameData.hints,
+                     errorCells: savedGameData.errorCells,
+                };
+                
                 setGameData({
                     ...savedGameData,
-                    notes: savedGameData.notes ? gameService.deserializeNotes(savedGameData.notes) : Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))
+                     players: {
+                         'solo': {
+                             ...soloPlayer,
+                             notes: savedGameData.notes ? gameService.deserializeNotes(savedGameData.notes) : Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))
+                         }
+                     }
                 });
                 setActiveView('game');
             }
@@ -142,9 +161,9 @@ export default function App() {
     const renderView = () => {
         switch (activeView) {
             case 'game': 
-                return <GameBoard initialGameData={gameData} onBack={handleGameExit} onSave={handleSaveGame} t={t} playerId={playerId} />;
+                return <GameBoard initialGameData={gameData} onBack={handleGameExit} onSave={handleSaveGame} t={t} playerId={playerId || 'solo'} />;
             case 'multiplayerLobby':
-                return <MultiplayerLobby game={gameData} t={t} />;
+                return <MultiplayerLobby game={gameData} t={t} setActiveView={setActiveView} setGameData={setGameData} />;
             case 'daily': 
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile': 
