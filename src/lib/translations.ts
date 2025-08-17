@@ -7,21 +7,21 @@ export const translations = {
         profile: 'Profil',
         settings: 'Indstillinger',
         language: 'Sprog',
+        back: 'Tilbage',
         
         // Lobby
         title: 'Social Sudoku',
         continueGame: 'Fortsæt Sidste Spil',
         difficulty: 'Vælg Sværhedsgrad',
         startGameAlone: 'Start Spil (Alene)',
-        startGameMultiplayer: 'Start Spil (Sammen med andre)',
-        playTogether: 'Spil sammen',
+        playTogether: 'Spil Sammen',
         createNewGame: 'Opret et nyt spil',
         joinGame: 'Deltag i et spil',
-        coop: 'Sammen',
+        coop: 'Samarbejde',
         vs: 'Mod hinanden',
         enterGameId: 'Indtast Spil ID',
         join: 'Deltag',
-        invalidGameId: 'Indtast venligst en gyldig 6-cifret spilkode.',
+        invalidGameId: 'Indtast venligst en gyldig spilkode.',
         gameNotFound: 'Spil ikke fundet. Tjek koden og prøv igen.',
 
         // Difficulties
@@ -48,6 +48,8 @@ export const translations = {
         congratulations: 'Tillykke!',
         puzzleSolved: 'Du har løst Sudokuen!',
         backToMenu: 'Tilbage til menuen',
+        opponentWon: 'Din modstander vandt!',
+        opponent: 'Modstander',
         
         // Multiplayer Lobby
         gameLobby: 'Spil Lobby',
@@ -76,13 +78,13 @@ export const translations = {
         profile: 'Profile',
         settings: 'Settings',
         language: 'Language',
+        back: 'Back',
 
         // Lobby
         title: 'Social Sudoku',
         continueGame: 'Continue Last Game',
         difficulty: 'Select Difficulty',
         startGameAlone: 'Start Game (Solo)',
-        startGameMultiplayer: 'Start Game (Multiplayer)',
         playTogether: 'Play Together',
         createNewGame: 'Create a new game',
         joinGame: 'Join a game',
@@ -90,7 +92,7 @@ export const translations = {
         vs: 'Versus',
         enterGameId: 'Enter Game ID',
         join: 'Join',
-        invalidGameId: 'Please enter a valid 6-character game code.',
+        invalidGameId: 'Please enter a valid game code.',
         gameNotFound: 'Game not found. Check the code and try again.',
 
         // Difficulties
@@ -117,6 +119,8 @@ export const translations = {
         congratulations: 'Congratulations!',
         puzzleSolved: 'You solved the puzzle!',
         backToMenu: 'Back to menu',
+        opponentWon: 'Your opponent won!',
+        opponent: 'Opponent',
 
         // Multiplayer Lobby
         gameLobby: 'Game Lobby',

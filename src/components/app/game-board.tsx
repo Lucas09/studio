@@ -2,6 +2,8 @@
 "use client";
 import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, BrainCircuit, Repeat, Video } from 'lucide-react';
+import type { Game, Player } from '@/services/game-service';
+import { gameService } from '@/services/game-service';
 
 const calculateInitialCounts = (board) => {
     const counts = {};
@@ -60,8 +62,8 @@ const Confetti = () => {
 };
 
 
-const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
-    const [gameData, setGameData] = React.useState(initialGameData);
+const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
+    const [gameData, setGameData] = React.useState<Game>(initialGameData);
     const [isNoteMode, setIsNoteMode] = React.useState(false);
     const [selectedCell, setSelectedCell] = React.useState(null);
     const [highlightedNumber, setHighlightedNumber] = React.useState(null);
@@ -69,34 +71,68 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const [isGameWon, setIsGameWon] = React.useState(false);
     const [isAdPlaying, setIsAdPlaying] = React.useState(false);
     const [adMessage, setAdMessage] = React.useState('');
-    const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(initialGameData.board));
-
-    const { board, notes, timer, errors, hints, errorCells, puzzle, solution, mode } = gameData;
-
-    React.useEffect(() => {
-        const interval = setInterval(() => {
-            const newTime = gameData.timer + 1;
-            const updatedGame = { ...gameData, timer: newTime };
-            setGameData(updatedGame);
-            onSave(updatedGame);
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [gameData, onSave]);
-
-    React.useEffect(() => {
-        checkWinCondition(board);
-        setNumberCounts(calculateInitialCounts(board));
-    }, [board]);
     
+    const isMultiplayer = gameData.mode !== 'Solo';
+    const playerState: Player = isMultiplayer ? gameData.players?.[playerId] : gameData;
+    const opponentId = isMultiplayer ? Object.keys(gameData.players || {}).find(id => id !== playerId) : null;
+    const opponentState: Player = opponentId ? gameData.players?.[opponentId] : null;
+
+    const { board, notes, timer, errors, hints } = playerState || {};
+    const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(board));
+    
+    const puzzle = gameData.puzzle ? (Array.isArray(gameData.puzzle) ? gameData.puzzle : convertObjectToBoard(gameData.puzzle)) : [];
+    const solution = gameData.solution ? (Array.isArray(gameData.solution) ? gameData.solution : convertObjectToBoard(gameData.solution)) : [];
+    
+    // Real-time updates for multiplayer
+    React.useEffect(() => {
+        if (isMultiplayer && gameData.gameId) {
+            const unsubscribe = gameService.getGameUpdates(gameData.gameId, (updatedGame) => {
+                setGameData(updatedGame);
+            });
+            return () => unsubscribe();
+        }
+    }, [isMultiplayer, gameData.gameId]);
+
+    // Timer logic
+    React.useEffect(() => {
+        if (gameData.status !== 'active') return;
+        
+        const interval = setInterval(() => {
+            const newTime = (playerState?.timer || 0) + 1;
+            const updates: Partial<Player> = { timer: newTime };
+            
+            if (isMultiplayer) {
+                gameService.updateGame(gameData.gameId, playerId, updates);
+            } else {
+                 const updatedGame = { ...gameData, ...updates };
+                 setGameData(updatedGame);
+                 onSave(updatedGame);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [gameData, playerState, onSave, isMultiplayer, gameData.gameId, playerId]);
+
+    React.useEffect(() => {
+        if (playerState) {
+            checkWinCondition(playerState.board);
+            setNumberCounts(calculateInitialCounts(playerState.board));
+        }
+    }, [playerState?.board]);
+
      React.useEffect(() => {
-        if (errors >= 3) {
+        if (playerState?.errors >= 3) {
             setIsGameOver(true);
         }
-    }, [errors]);
+    }, [playerState?.errors]);
 
-    const updateGame = (updates) => {
-        const updatedGame = { ...gameData, ...updates };
-        setGameData(updatedGame);
+    const updateGame = (updates: Partial<Player>) => {
+        if (isMultiplayer) {
+            gameService.updateGame(gameData.gameId, playerId, updates);
+        } else {
+            const updatedGame = { ...gameData, ...updates };
+            setGameData(updatedGame);
+        }
     };
     
     const checkWinCondition = (currentBoard) => {
@@ -109,6 +145,9 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
             }
         }
         setIsGameWon(true);
+        if(isMultiplayer) {
+             gameService.setWinner(gameData.gameId, playerId);
+        }
     };
 
     const formatTime = (seconds) => {
@@ -137,23 +176,33 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     };
 
     const handleNumberInput = (num) => {
-        if (!selectedCell || isGameWon) return;
+        if (!selectedCell || isGameWon || gameData.status === 'finished') return;
         const { row, col } = selectedCell;
+        
+        let currentBoard = board;
+        let currentNotes = notes;
+
+        // In co-op mode, players edit the same board.
+        if (gameData.mode === 'Co-op' && opponentState) {
+            currentBoard = opponentState.board;
+            currentNotes = opponentState.notes;
+        }
+
         if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return; 
 
         if (isNoteMode) {
-            const newNotes = notes.map(r => r.map(c => new Set(c)));
+            const newNotes = currentNotes.map(r => r.map(c => new Set(c)));
             const cellNotes = newNotes[row][col];
             if (cellNotes.has(num)) cellNotes.delete(num);
             else cellNotes.add(num);
             updateGame({ notes: newNotes });
         } else {
-            let newErrorCells = errorCells.filter(cell => !(cell.row === row && cell.col === col));
-            const newBoard = board.map(r => [...r]);
+            let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
+            const newBoard = currentBoard.map(r => [...r]);
             newBoard[row][col] = num;
             
             if (solution && solution[row] && solution[row][col] === num) {
-                const newNotes = clearNotesForValue(notes, row, col, num);
+                const newNotes = clearNotesForValue(currentNotes, row, col, num);
                 setHighlightedNumber(num);
                 updateGame({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
             } else {
@@ -165,7 +214,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     };
     
     const handleErase = () => {
-        if (!selectedCell || isGameWon) return;
+        if (!selectedCell || isGameWon || gameData.status === 'finished') return;
         const { row, col } = selectedCell;
         if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return;
         
@@ -175,7 +224,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
         const newNotes = notes.map(r => r.map(c => new Set(c)));
         newNotes[row][col].clear();
 
-        const newErrorCells = errorCells.filter(cell => !(cell.row === row && cell.col === col));
+        const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
         updateGame({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
     };
 
@@ -189,7 +238,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
                 const hintNum = solution[r][c];
                 newBoard[r][c] = hintNum;
                 const newNotes = clearNotesForValue(notes, r, c, hintNum);
-                const newErrorCells = errorCells.filter(cell => !(cell.row === r && cell.col === c));
+                const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === r && cell.col === c));
                 updateGame({ board: newBoard, hints: hints - 1, notes: newNotes, errorCells: newErrorCells });
             }
         } else if (!isGameWon) {
@@ -208,7 +257,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
             }
         }, 1500);
     };
-    
+
     const Modal = ({ title, titleColor, children, onConfirm, onCancel, confirmText, cancelText }) => (
         <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white p-8 rounded-2xl shadow-lg text-center w-full max-w-sm text-gray-800">
@@ -221,18 +270,26 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
             </div>
         </div>
     );
+    
+    if (!playerState) {
+        return <div className="flex justify-center items-center h-full">Loading...</div>;
+    }
+
+    const displayedBoard = gameData.mode === 'Co-op' && opponentState ? opponentState.board : board;
 
     return (
         <div className="p-4 bg-gray-50 text-gray-800 flex flex-col h-full justify-between">
-            {isGameWon && <Confetti />}
-            {isGameWon && <Modal title={t.congratulations} titleColor="text-green-500" onCancel={onBack} cancelText={t.backToMenu}><p>{t.puzzleSolved}</p></Modal>}
+            {(isGameWon || gameData.winner === playerId) && <Confetti />}
+            {(isGameWon || gameData.winner === playerId) && <Modal title={t.congratulations} titleColor="text-green-500" onCancel={onBack} cancelText={t.backToMenu}><p>{t.puzzleSolved}</p></Modal>}
+            {gameData.winner && gameData.winner !== playerId && <Modal title={t.gameOver} titleColor="text-red-500" onCancel={onBack} cancelText={t.backToMenu}><p>{t.opponentWon}</p></Modal>}
+
             {isGameOver && <Modal title={t.gameOver} titleColor="text-red-500" onCancel={onBack} cancelText={<><Repeat className="mr-2 h-5 w-5" /> {t.tryAgain}</>} onConfirm={() => { setIsGameOver(false); setAdMessage(t.adForLife); setIsAdPlaying(true); }} confirmText={<><Video className="mr-2 h-5 w-5" /> {t.watchAdForLife}</>}><p>{t.gameOverMessage}</p></Modal>}
             {isAdPlaying && <Modal title={t.opportunity} titleColor="text-yellow-500" onCancel={() => setIsAdPlaying(false)} cancelText={t.no} onConfirm={() => handleAdConfirm(adMessage.includes('hint') ? 'hint' : 'life')} confirmText={t.yes}><p>{adMessage}</p></Modal>}
             
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <button onClick={onBack} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><ArrowLeft /></button>
-                    <div className="text-lg font-semibold">{gameData.difficulty}</div>
+                    <div className="text-lg font-semibold">{gameData.difficulty} ({gameData.mode})</div>
                     <div className="flex items-center space-x-4">
                         <div className="text-red-500 font-bold text-lg">{t.errors}: {errors}/3</div>
                         <div className="font-mono text-lg">{formatTime(timer)}</div>
@@ -245,13 +302,13 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
                             {Array.from({ length: 9 }).map((_, cellIdx) => {
                                 const rIdx = Math.floor(boxIdx / 3) * 3 + Math.floor(cellIdx / 3);
                                 const cIdx = (boxIdx % 3) * 3 + (cellIdx % 3);
-                                if (!board || !board[rIdx]) return null;
-                                const cell = board[rIdx][cIdx];
+                                if (!displayedBoard || !displayedBoard[rIdx]) return null;
+                                const cell = displayedBoard[rIdx][cIdx];
                                 const isGiven = puzzle && puzzle[rIdx] && puzzle[rIdx][cIdx] !== null;
                                 const isSelected = selectedCell && selectedCell.row === rIdx && selectedCell.col === cIdx;
                                 const isInSelectedRowCol = !isSelected && selectedCell && (rIdx === selectedCell.row || cIdx === selectedCell.col);
                                 const isInSelectedBox = !isSelected && selectedCell && (Math.floor(rIdx / 3) === Math.floor(selectedCell.row / 3) && Math.floor(cIdx / 3) === Math.floor(selectedCell.col / 3));
-                                const isError = !isGiven && errorCells.some(cell => cell.row === rIdx && cell.col === cIdx);
+                                const isError = !isGiven && (playerState.errorCells || []).some(cell => cell.row === rIdx && cell.col === cIdx);
                                 const isHighlighted = !isSelected && highlightedNumber && cell !== null && cell === highlightedNumber;
 
                                 return (
@@ -271,6 +328,11 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
                         </div>
                     ))}
                 </div>
+                 {gameData.mode === 'Versus' && opponentState && (
+                    <div className="mt-4 p-2 bg-gray-200 rounded-lg">
+                        <h3 className="text-sm font-semibold text-center">{t.opponent}: {formatTime(opponentState.timer)} - {t.errors}: {opponentState.errors}/3</h3>
+                    </div>
+                 )}
             </div>
 
             <div className="mt-4">
@@ -286,4 +348,11 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
         </div>
     );
 };
+
+function convertObjectToBoard(boardObject) {
+    if (!boardObject) return Array(9).fill(null).map(() => Array(9).fill(null));
+    return Object.keys(boardObject).sort((a,b) => parseInt(a) - parseInt(b)).map(key => boardObject[key]);
+};
+
+
 export default GameBoard;
