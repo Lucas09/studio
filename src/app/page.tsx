@@ -4,6 +4,7 @@
 import React from 'react';
 import { Home, Calendar, User, ArrowLeft, Star, Trophy, BrainCircuit, Users, Swords, HelpCircle, Lightbulb, History, Video, Repeat, Eraser, Copy, Check, Settings } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { gameService, type Game, type GameMode, type Difficulty as GameDifficulty } from '@/services/game-service';
 
 // --- TRANSLATIONS ---
 const translations = {
@@ -48,7 +49,7 @@ const translations = {
         tryAgain: 'Prøv Igen',
         watchAdForLife: 'Se Reklame for Ekstra Liv',
         opportunity: 'Mulighed!',
-        adForHint: 'Se en reklame for et ekstra hint?',
+        adForHint: 'Se en reklame for et extra hint?',
         adForLife: 'Se reklame for et ekstra liv?',
         yes: 'Ja tak',
         no: 'Nej tak',
@@ -60,6 +61,7 @@ const translations = {
         gameLobby: 'Spil Lobby',
         shareCode: 'Del denne kode med en ven for at spille sammen.',
         waitingForPlayer: 'Venter på at en anden spiller deltager...',
+        playerJoined: 'Spiller 2 er deltager!',
         startGame: 'Start Spil',
         
         // Daily Challenges
@@ -128,6 +130,7 @@ const translations = {
         gameLobby: 'Game Lobby',
         shareCode: 'Share this code with a friend to play together.',
         waitingForPlayer: 'Waiting for another player to join...',
+        playerJoined: 'Player 2 has joined!',
         startGame: 'Start Game',
 
         // Daily Challenges
@@ -150,7 +153,30 @@ const sudokuGenerator = {
     generate: (difficulty) => {
         let puzzle = Array(9).fill(null).map(() => Array(9).fill(null));
         sudokuGenerator.solve(puzzle);
-        let holes = { 'Let': 35, 'Medium': 45, 'Svær': 50, 'Meget svær': 55, 'Umulig': 60 }[difficulty] || 35;
+        let holes;
+        switch (difficulty) {
+            case 'Let':
+            case 'Easy':
+                holes = 35;
+                break;
+            case 'Medium':
+                holes = 45;
+                break;
+            case 'Svær':
+            case 'Hard':
+                holes = 50;
+                break;
+            case 'Meget svær':
+            case 'Very Hard':
+                holes = 55;
+                break;
+            case 'Umulig':
+            case 'Impossible':
+                holes = 60;
+                break;
+            default:
+                holes = 35;
+        }
         let solution = JSON.parse(JSON.stringify(puzzle));
         let attempts = holes;
         while (attempts > 0) {
@@ -246,51 +272,68 @@ const Confetti = () => {
     );
 };
 
-const GameBoard = ({ gameData, onBack, onSave, t }) => {
-    const [board, setBoard] = React.useState(JSON.parse(JSON.stringify(gameData.board || gameData.puzzle)));
-    const [notes, setNotes] = React.useState(() => {
-        if (gameData.notes && gameData.notes.length > 0 && gameData.notes[0] && gameData.notes[0][0] && 'size' in gameData.notes[0][0]) {
-             // Already Set objects
-             return gameData.notes;
-        }
-        if (gameData.notes && gameData.notes.length > 0) {
-            return gameData.notes.map(row => row.map(cellNotes => new Set(cellNotes)));
-        }
-        return Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
-    });
+const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
+    const [gameData, setGameData] = React.useState(initialGameData);
+    const { board, notes, timer, errors, hints, errorCells, puzzle, solution, mode, gameId } = gameData;
     const [isNoteMode, setIsNoteMode] = React.useState(false);
     const [selectedCell, setSelectedCell] = React.useState(null);
     const [highlightedNumber, setHighlightedNumber] = React.useState(null);
-    const [timer, setTimer] = React.useState(gameData.timer || 0);
-    const [errors, setErrors] = React.useState(gameData.errors || 0);
-    const [hints, setHints] = React.useState(gameData.hints !== undefined ? gameData.hints : 3);
     const [isGameOver, setIsGameOver] = React.useState(false);
     const [isGameWon, setIsGameWon] = React.useState(false);
     const [isAdPlaying, setIsAdPlaying] = React.useState(false);
     const [adMessage, setAdMessage] = React.useState('');
-    const [errorCells, setErrorCells] = React.useState(gameData.errorCells || []);
     const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(board));
 
     React.useEffect(() => {
-        if (isGameWon) return;
-        const interval = setInterval(() => {
-            setTimer(t => {
-                const newTime = t + 1;
-                if (gameData.mode === 'Alene') {
-                    const notesAsArrays = notes.map(row => row.map(set => Array.from(set)));
-                    onSave({ ...gameData, board, notes: notesAsArrays, timer: newTime, errors, hints, errorCells });
+        if (mode === 'Solo') {
+            const interval = setInterval(() => {
+                const newTime = gameData.timer + 1;
+                const updatedGame = { ...gameData, timer: newTime };
+                setGameData(updatedGame);
+                onSave(updatedGame);
+            }, 1000);
+            return () => clearInterval(interval);
+        } else if (gameId) {
+            const unsubscribe = gameService.onGameUpdate(gameId, (updatedGame) => {
+                if(updatedGame){
+                    setGameData({
+                        ...updatedGame,
+                        notes: gameService.deserializeNotes(updatedGame.notes),
+                    });
                 }
-                return newTime;
             });
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [isGameWon, board, notes, errors, hints, errorCells, gameData, onSave]);
+            return () => unsubscribe();
+        }
+    }, [mode, gameId, onSave]);
 
+    React.useEffect(() => {
+        checkWinCondition(board);
+        setNumberCounts(calculateInitialCounts(board));
+    }, [board]);
+    
+     React.useEffect(() => {
+        if (errors >= 3) {
+            setIsGameOver(true);
+        }
+    }, [errors]);
+
+    const updateGame = (updates) => {
+        const updatedGame = { ...gameData, ...updates };
+        setGameData(updatedGame);
+        if (mode !== 'Solo') {
+            const { notes, ...restOfGame } = updatedGame;
+            gameService.updateGame(gameId, {
+                ...restOfGame,
+                notes: gameService.serializeNotes(notes),
+            });
+        }
+    };
+    
     const checkWinCondition = (currentBoard) => {
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
                 if (currentBoard[r][c] === null) {
-                    return; 
+                    return;
                 }
             }
         }
@@ -309,44 +352,41 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
         setHighlightedNumber(clickedNumber !== null ? clickedNumber : null);
     };
     
-    const clearNotesForValue = (row, col, value) => {
-        const newNotes = [...notes];
+    const clearNotesForValue = (currentNotes, row, col, value) => {
+        const newNotes = currentNotes.map(r => r.map(c => new Set(c)));
         for (let i = 0; i < 9; i++) {
             newNotes[row][i].delete(value);
             newNotes[i][col].delete(value);
         }
         const startRow = Math.floor(row / 3) * 3, startCol = Math.floor(col / 3) * 3;
         for (let r = startRow; r < startRow + 3; r++) for (let c = startCol; c < startCol + 3; c++) newNotes[r][c].delete(value);
-        setNotes(newNotes);
+        return newNotes;
     };
 
     const handleNumberInput = (num) => {
         if (!selectedCell || isGameWon) return;
         const { row, col } = selectedCell;
-        if (gameData.puzzle[row][col] !== null) return; 
+        if (puzzle[row][col] !== null) return; 
 
         if (isNoteMode) {
-            const newNotes = [...notes];
+            const newNotes = notes.map(r => r.map(c => new Set(c)));
             const cellNotes = newNotes[row][col];
             if (cellNotes.has(num)) cellNotes.delete(num);
             else cellNotes.add(num);
-            setNotes(newNotes);
+            updateGame({ notes: newNotes });
         } else {
-            const newErrorCells = errorCells.filter(cell => !(cell.row === row && cell.col === col));
+            let newErrorCells = errorCells.filter(cell => !(cell.row === row && cell.col === col));
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = num;
-            setBoard(newBoard);
-            if (gameData.solution[row][col] === num) {
-                setErrorCells(newErrorCells);
-                clearNotesForValue(row, col, num);
-                setNumberCounts(prev => ({ ...prev, [num]: (prev[num] || 0) + 1 }));
+            
+            if (solution[row][col] === num) {
+                const newNotes = clearNotesForValue(notes, row, col, num);
                 setHighlightedNumber(num);
-                checkWinCondition(newBoard);
+                updateGame({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
             } else {
-                setErrorCells([...newErrorCells, { row, col }]);
+                newErrorCells = [...newErrorCells, { row, col }];
                 const newErrors = errors + 1;
-                setErrors(newErrors);
-                if (newErrors >= 3) setIsGameOver(true);
+                updateGame({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
             }
         }
     };
@@ -354,20 +394,16 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const handleErase = () => {
         if (!selectedCell || isGameWon) return;
         const { row, col } = selectedCell;
-        if (gameData.puzzle[row][col] !== null) return;
+        if (puzzle[row][col] !== null) return;
         
-        const numToErase = board[row][col];
-        if (numToErase !== null) {
-            setNumberCounts(prev => ({ ...prev, [numToErase]: prev[numToErase] - 1 }));
-        }
-
         const newBoard = board.map(r => [...r]);
         newBoard[row][col] = null;
-        setBoard(newBoard);
-        const newNotes = [...notes];
+        
+        const newNotes = notes.map(r => r.map(c => new Set(c)));
         newNotes[row][col].clear();
-        setNotes(newNotes);
-        setErrorCells(errorCells.filter(cell => !(cell.row === row && cell.col === col)));
+
+        const newErrorCells = errorCells.filter(cell => !(cell.row === row && cell.col === col));
+        updateGame({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
     };
 
     const handleHint = () => {
@@ -377,14 +413,11 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
             if(emptyCells.length > 0) {
                 const {r, c} = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 const newBoard = board.map(b => [...b]);
-                const hintNum = gameData.solution[r][c];
+                const hintNum = solution[r][c];
                 newBoard[r][c] = hintNum;
-                setBoard(newBoard);
-                setHints(h => h - 1);
-                setNumberCounts(prev => ({ ...prev, [hintNum]: (prev[hintNum] || 0) + 1 }));
-                clearNotesForValue(r, c, hintNum);
-                setErrorCells(errorCells.filter(cell => !(cell.row === r && cell.col === c)));
-                checkWinCondition(newBoard);
+                const newNotes = clearNotesForValue(notes, r, c, hintNum);
+                const newErrorCells = errorCells.filter(cell => !(cell.row === r && cell.col === c));
+                updateGame({ board: newBoard, hints: hints - 1, notes: newNotes, errorCells: newErrorCells });
             }
         } else if (!isGameWon) {
             setAdMessage(t.adForHint);
@@ -395,10 +428,10 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const handleAdConfirm = (type) => {
         setIsAdPlaying(false);
         setTimeout(() => {
-            if(type === 'hint') setHints(1);
+            if(type === 'hint') updateGame({ hints: 1 });
             else if (type === 'life') {
                 setIsGameOver(false);
-                setErrors(2);
+                updateGame({ errors: 2 });
             }
         }, 1500);
     };
@@ -439,9 +472,9 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                             {Array.from({ length: 9 }).map((_, cellIdx) => {
                                 const rIdx = Math.floor(boxIdx / 3) * 3 + Math.floor(cellIdx / 3);
                                 const cIdx = (boxIdx % 3) * 3 + (cellIdx % 3);
-                                if (!board[rIdx]) return null;
+                                if (!board || !board[rIdx]) return null;
                                 const cell = board[rIdx][cIdx];
-                                const isGiven = gameData.puzzle[rIdx][cIdx] !== null;
+                                const isGiven = puzzle[rIdx][cIdx] !== null;
                                 const isSelected = selectedCell && selectedCell.row === rIdx && selectedCell.col === cIdx;
                                 const isInSelectedRowCol = !isSelected && selectedCell && (rIdx === selectedCell.row || cIdx === selectedCell.col);
                                 const isInSelectedBox = !isSelected && selectedCell && (Math.floor(rIdx / 3) === Math.floor(selectedCell.row / 3) && Math.floor(cIdx / 3) === Math.floor(selectedCell.col / 3));
@@ -452,7 +485,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                                     <div key={`${rIdx}-${cIdx}`} onClick={() => handleCellClick(rIdx, cIdx)} className={`flex justify-center items-center aspect-square transition-colors duration-100 cursor-pointer ${isSelected ? 'bg-blue-300' : isHighlighted ? 'bg-yellow-200' : (isInSelectedRowCol || isInSelectedBox) ? 'bg-blue-100' : 'bg-white'}`}>
                                         <div className={`text-3xl ${isGiven ? 'font-bold text-gray-800' : isError ? 'font-medium text-red-500' : 'font-medium text-blue-600'}`}>
                                             {cell !== null ? cell : (
-                                                notes[rIdx] && notes[rIdx][cIdx] && notes[rIdx][cIdx].size > 0 && (
+                                                notes && notes[rIdx] && notes[rIdx][cIdx] && notes[rIdx][cIdx].size > 0 && (
                                                     <div className="grid grid-cols-3 gap-px text-xs text-gray-500 leading-none">
                                                         {[1,2,3,4,5,6,7,8,9].map(n => (<div key={n} className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex justify-center items-center">{notes[rIdx][cIdx].has(n) ? n : ''}</div>))}
                                                     </div>
@@ -481,8 +514,19 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     );
 };
 
-const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
+const MultiplayerLobby = ({ gameId, onBack, t }) => {
     const [copied, setCopied] = React.useState(false);
+    const [playerCount, setPlayerCount] = React.useState(1);
+
+    React.useEffect(() => {
+        const unsubscribe = gameService.onGameUpdate(gameId, (game) => {
+            if (game) {
+                setPlayerCount(game.playerCount);
+            }
+        });
+        return () => unsubscribe();
+    }, [gameId]);
+
 
     const copyToClipboard = () => {
          if (typeof window !== 'undefined' && navigator.clipboard) {
@@ -495,7 +539,7 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
 
     return (
         <div className="p-6 bg-gray-50 text-gray-800 flex flex-col h-full items-center justify-center text-center">
-            <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-sm">
+            <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-sm relative">
                 <button onClick={onBack} className="absolute top-6 left-6 p-2 rounded-full bg-gray-200 hover:bg-gray-300"><ArrowLeft /></button>
                 <h2 className="text-2xl font-bold mb-4">{t.gameLobby}</h2>
                 <p className="text-gray-600 mb-6">{t.shareCode}</p>
@@ -505,8 +549,12 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
                         {copied ? <Check className="text-green-500" /> : <Copy />}
                     </button>
                 </div>
-                <p className="text-gray-500 mb-6 animate-pulse">{t.waitingForPlayer}</p>
-                <button onClick={onStart} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105">
+                 {playerCount < 2 ? 
+                    <p className="text-gray-500 mb-6 animate-pulse">{t.waitingForPlayer}</p>
+                    :
+                    <p className="text-green-500 mb-6 font-semibold">{t.playerJoined}</p>
+                }
+                <button onClick={() => gameService.updateGame(gameId, { status: 'active' })} disabled={playerCount < 2} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105 disabled:opacity-50">
                     {t.startGame}
                 </button>
             </div>
@@ -515,7 +563,7 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
 };
 
 const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, onResumeGame, t }) => {
-    const [difficulty, setDifficulty] = React.useState('Let');
+    const [difficulty, setDifficulty] = React.useState<GameDifficulty>('Easy');
     const [gameMode, setGameMode] = React.useState(null);
     const [multiplayerStep, setMultiplayerStep] = React.useState(null);
     const [joinGameId, setJoinGameId] = React.useState('');
@@ -529,8 +577,8 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
 
 
     const difficulties = {
-        'Let': t.easy, 'Medium': t.medium, 'Svær': t.hard, 
-        'Meget svær': t.veryhard, 'Umulig': t.impossible
+        'Easy': t.easy, 'Medium': t.medium, 'Hard': t.hard, 
+        'Very Hard': t.veryhard, 'Impossible': t.impossible
     };
 
     const handleMultiplayerClick = () => {
@@ -552,11 +600,11 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
             <div className="bg-white p-6 rounded-2xl shadow-md">
                 <h2 className="text-xl font-semibold mb-4 text-gray-700">{t.difficulty}</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-                    {Object.entries(difficulties).map(([key, value]) => (<button key={key} onClick={() => setDifficulty(key)} className={`py-3 rounded-lg text-sm font-semibold transition-colors ${difficulty === key ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>{value}</button>))}
+                    {Object.entries(difficulties).map(([key, value]) => (<button key={key} onClick={() => setDifficulty(key as GameDifficulty)} className={`py-3 rounded-lg text-sm font-semibold transition-colors ${difficulty === key ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>{value}</button>))}
                 </div>
 
                 <div className="flex flex-col space-y-4">
-                     <button onClick={() => onStartGame({difficulty, mode: 'Alene'})} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">{t.startGameAlone}</button>
+                     <button onClick={() => onStartGame({difficulty, mode: 'Solo'})} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">{t.startGameAlone}</button>
                     <button onClick={handleMultiplayerClick} className={`w-full text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-colors ${gameMode === 'multi' ? 'bg-purple-600' : 'bg-purple-500 hover:bg-purple-600'}`}>{t.startGameMultiplayer}</button>
                 </div>
 
@@ -575,8 +623,8 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
                              <>
                                 <h3 className="font-semibold mb-3 text-center">{t.createNewGame}</h3>
                                 <div className="flex space-x-4 mb-4">
-                                    <button onClick={() => onCreateMultiplayerGame({difficulty, mode: 'Sammen'})} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Users className="mr-2 h-5 w-5" /> {t.coop}</button>
-                                    <button onClick={() => onCreateMultiplayerGame({difficulty, mode: 'Mod hinanden'})} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Swords className="mr-2 h-5 w-5" /> {t.vs}</button>
+                                    <button onClick={() => onCreateMultiplayerGame({difficulty, mode: 'Co-op'})} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Users className="mr-2 h-5 w-5" /> {t.coop}</button>
+                                    <button onClick={() => onCreateMultiplayerGame({difficulty, mode: 'Versus'})} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Swords className="mr-2 h-5 w-5" /> {t.vs}</button>
                                 </div>
                              </>
                         )}
@@ -597,18 +645,8 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
 };
 
 const DailyChallenges = ({ onStartDailyChallenge, t }) => {
-    const [today, setToday] = React.useState(null);
-    const [selectedDay, setSelectedDay] = React.useState(null);
-
-    React.useEffect(() => {
-        const now = new Date();
-        setToday(now);
-        setSelectedDay(now.getDate());
-    }, []);
-
-    if (!today) {
-        return null; // or a loading indicator
-    }
+    const [today, setToday] = React.useState(new Date());
+    const [selectedDay, setSelectedDay] = React.useState(today.getDate());
 
     const firstDayOfMonth = (new Date(today.getFullYear(), today.getMonth(), 1).getDay() + 6) % 7;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -626,17 +664,17 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
             <h1 className="text-3xl font-bold text-center text-blue-600 mb-6">{t.dailyChallengesTitle}</h1>
             <div className="bg-white p-4 rounded-2xl shadow-md flex-grow flex flex-col">
                 <div className="flex justify-between items-center mb-4">
-                    <button className="p-2 rounded-full hover:bg-gray-200"><ArrowLeft /></button>
+                    <button onClick={() => setToday(new Date(today.setMonth(today.getMonth() - 1)))} className="p-2 rounded-full hover:bg-gray-200"><ArrowLeft /></button>
                     <h2 className="text-xl font-semibold">{monthName} {today.getFullYear()}</h2>
-                    <button className="p-2 rounded-full hover:bg-gray-200 transform rotate-180"><ArrowLeft /></button>
+                    <button onClick={() => setToday(new Date(today.setMonth(today.getMonth() + 1)))} className="p-2 rounded-full hover:bg-gray-200 transform rotate-180"><ArrowLeft /></button>
                 </div>
                 <div className="grid grid-cols-7 gap-2 text-center text-xs text-gray-500 mb-2">{t.weekdays.map((day, index) => <div key={`${day}-${index}`}>{day}</div>)}</div>
                 <div className="grid grid-cols-7 gap-2">
                     {emptyDays.map((_, i) => <div key={`empty-${i}`}></div>)}
                     {calendarDays.map(day => {
                         const isCompleted = completedChallenges.includes(day);
-                        const isToday = day === today.getDate();
-                        const isFuture = day > today.getDate();
+                        const isToday = day === new Date().getDate() && today.getMonth() === new Date().getMonth();
+                        const isFuture = day > new Date().getDate() && today.getMonth() >= new Date().getMonth();
                         const isSelected = day === selectedDay;
 
                         return (<button 
@@ -672,19 +710,19 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
 
 const Profile = ({ t, language, setLanguage }) => {
     const stats = {
-        'Let': { solved: 12, bestTime: '03:45', avgTime: '05:12' },
+        'Easy': { solved: 12, bestTime: '03:45', avgTime: '05:12' },
         'Medium': { solved: 8, bestTime: '07:11', avgTime: '09:34' },
-        'Svær': { solved: 3, bestTime: '15:23', avgTime: '18:01' },
-        'Meget svær': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
-        'Umulig': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
+        'Hard': { solved: 3, bestTime: '15:23', avgTime: '18:01' },
+        'Very Hard': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
+        'Impossible': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
     };
 
     const difficulties = {
-        'Let': t.easy,
+        'Easy': t.easy,
         'Medium': t.medium,
-        'Svær': t.hard,
-        'Meget svær': t.veryhard,
-        'Umulig': t.impossible
+        'Hard': t.hard,
+        'Very Hard': t.veryhard,
+        'Impossible': t.impossible
     };
 
     return (
@@ -697,9 +735,9 @@ const Profile = ({ t, language, setLanguage }) => {
             <div className="bg-white p-4 rounded-2xl shadow-md mb-6">
                 <h2 className="text-xl font-semibold mb-4 text-center text-gray-700">{t.statistics}</h2>
                 <div className="space-y-3">
-                    {Object.entries(stats).map(([difficulty, data]) => (
-                        <div key={difficulty} className="bg-gray-100 p-4 rounded-lg">
-                            <h3 className="font-bold text-blue-600">{difficulties[difficulty]}</h3>
+                    {Object.entries(stats).map(([difficultyKey, data]) => (
+                        <div key={difficultyKey} className="bg-gray-100 p-4 rounded-lg">
+                            <h3 className="font-bold text-blue-600">{difficulties[difficultyKey]}</h3>
                             <div className="flex justify-between items-center text-sm mt-2 text-gray-600 flex-wrap gap-2">
                                 <span>{t.solved}: <span className="font-semibold text-gray-800">{data.solved}</span></span>
                                 <span>{t.bestTime}: <span className="font-semibold text-gray-800">{data.bestTime}</span></span>
@@ -727,8 +765,7 @@ const Profile = ({ t, language, setLanguage }) => {
 export default function App() {
     const [language, setLanguage] = React.useState('da');
     const [activeView, setActiveView] = React.useState('lobby');
-    const [gameData, setGameData] = React.useState(null);
-    const [multiplayerInfo, setMultiplayerInfo] = React.useState(null);
+    const [gameData, setGameData] = React.useState<Game | null>(null);
     const [isClient, setIsClient] = React.useState(false);
     const { toast } = useToast();
 
@@ -738,37 +775,48 @@ export default function App() {
     
     const t = translations[language];
 
+     React.useEffect(() => {
+        if (!gameData || !gameData.gameId || gameData.mode === 'Solo') return;
+
+        const unsubscribe = gameService.onGameUpdate(gameData.gameId, (updatedGame) => {
+            if (updatedGame && updatedGame.status === 'active') {
+                setActiveView('game');
+                setGameData({
+                    ...updatedGame,
+                    notes: gameService.deserializeNotes(updatedGame.notes)
+                });
+            }
+        });
+
+        return () => unsubscribe();
+    }, [gameData?.gameId, gameData?.mode]);
+
+
     const handleSaveGame = (currentGameState) => {
-        if (typeof window !== 'undefined' && currentGameState.mode === 'Alene') {
+        if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
             localStorage.setItem('savedSudokuGame', JSON.stringify(currentGameState));
         }
     };
 
-    const startGame = (data) => {
-        const { puzzle, solution, difficulty, mode, gameId } = data;
-        const initialNotes = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
-        const newGameData = { 
+    const startSoloGame = ({difficulty, mode}) => {
+        const { puzzle, solution } = sudokuGenerator.generate(difficulty);
+        const newGameData: Game = {
             puzzle, 
             solution, 
             difficulty, 
-            mode, 
-            gameId, 
+            mode,
             board: puzzle.map(row => [...row]), 
-            notes: initialNotes, 
+            notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
             errors: 0, 
-            timer: 0 
+            timer: 0,
+            hints: 3,
+            errorCells: [],
+            status: 'active',
+            playerCount: 1,
         };
         setGameData(newGameData);
         setActiveView('game');
-        if (mode === 'Alene') {
-             handleSaveGame(newGameData);
-        }
-    };
-
-    const handleStartGame = ({difficulty, mode}) => {
-        const { puzzle, solution } = sudokuGenerator.generate(difficulty);
-        const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
-        startGame({ puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode });
+        handleSaveGame(newGameData);
     };
 
     const handleResumeGame = () => {
@@ -776,78 +824,91 @@ export default function App() {
             const savedGameJSON = localStorage.getItem('savedSudokuGame');
             if (savedGameJSON) {
                 const savedGameData = JSON.parse(savedGameJSON);
-                setGameData(savedGameData);
+                setGameData({
+                    ...savedGameData,
+                    notes: savedGameData.notes.map(row => row.map(cell => new Set(cell)))
+                });
                 setActiveView('game');
             }
         }
     };
     
-    const handleCreateMultiplayerGame = ({difficulty, mode}) => {
-        if (typeof window === 'undefined') return;
-        const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const handleCreateMultiplayerGame = async ({difficulty, mode}) => {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
-        const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
-        const multiplayerGameData = {
-            puzzle,
-            solution,
-            difficulty: t[difficultyKey] || difficulty,
-            mode,
-        };
-        localStorage.setItem(`multiplayer-game-${gameId}`, JSON.stringify(multiplayerGameData));
-        
-        setMultiplayerInfo({ gameId, difficulty, mode });
-        setActiveView('multiplayerLobby');
+        try {
+            const gameId = await gameService.createGame({ puzzle, solution, difficulty, mode });
+            setGameData({
+                gameId,
+                puzzle,
+                solution,
+                difficulty,
+                mode,
+                status: 'lobby',
+                board: puzzle.map(row => [...row]),
+                notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
+                errors: 0,
+                timer: 0,
+                hints: 3,
+                errorCells: [],
+                playerCount: 1,
+            });
+            setActiveView('multiplayerLobby');
+        } catch (error) {
+            console.error("Error creating game:", error);
+            toast({ title: "Error", description: "Could not create game.", variant: "destructive" });
+        }
     };
 
-    const handleJoinMultiplayerGame = (gameId) => {
-        if (typeof window === 'undefined') return;
+    const handleJoinMultiplayerGame = async (gameId) => {
+        if (!gameId || gameId.length !== 6) {
+            toast({ title: t.invalidGameId, variant: "destructive" });
+            return;
+        }
 
-        if (gameId && gameId.length === 6) {
-            const gameDataJSON = localStorage.getItem(`multiplayer-game-${gameId}`);
-            if (gameDataJSON) {
-                const storedGameData = JSON.parse(gameDataJSON);
-                startGame({ ...storedGameData, gameId });
-            } else {
-                toast({
-                    title: "Game Not Found",
-                    description: t.gameNotFound,
-                    variant: "destructive",
+        try {
+            const game = await gameService.joinGame(gameId);
+            if (game) {
+                 setGameData({
+                    ...game,
+                    notes: gameService.deserializeNotes(game.notes),
                 });
+                if (game.status === 'active') {
+                    setActiveView('game');
+                } else {
+                    setActiveView('multiplayerLobby');
+                }
+            } else {
+                toast({ title: t.gameNotFound, variant: "destructive" });
             }
-        } else {
-            toast({
-                title: "Invalid Game ID",
-                description: t.invalidGameId,
-                variant: "destructive",
-            });
+        } catch (error) {
+            console.error("Error joining game:", error);
+            toast({ title: t.gameNotFound, variant: "destructive" });
         }
     };
     
     const handleStartDailyChallenge = (day) => {
         if (day) {
-            handleStartGame({difficulty: 'Medium', mode: `${t.dailyChallengesTitle} - Dag ${day}`});
+            startSoloGame({difficulty: 'Medium', mode: `Daily Challenge - Day ${day}`});
         }
     };
     
     const handleGameExit = () => {
-        const previousView = gameData?.mode?.startsWith(t.dailyChallengesTitle) ? 'daily' : 'lobby';
-        if (typeof window !== 'undefined' && gameData?.mode === 'Alene') {
+        const previousView = gameData?.mode?.startsWith('Daily') ? 'daily' : 'lobby';
+        if (typeof window !== 'undefined' && gameData?.mode === 'Solo') {
             localStorage.removeItem('savedSudokuGame');
         }
         setGameData(null);
-        setMultiplayerInfo(null);
         setActiveView(previousView);
     };
 
     const renderView = () => {
         switch (activeView) {
             case 'game': 
-                return <GameBoard gameData={gameData} onBack={handleGameExit} onSave={handleSaveGame} t={t} />;
+                return <GameBoard initialGameData={gameData} onBack={handleGameExit} onSave={handleSaveGame} t={t} />;
             case 'multiplayerLobby':
                 return <MultiplayerLobby 
-                            gameId={multiplayerInfo.gameId} 
+                            gameId={gameData.gameId} 
                             onBack={handleGameExit}
-                            onStart={() => handleJoinMultiplayerGame(multiplayerInfo.gameId)}
                             t={t}
                         />;
             case 'daily': 
@@ -857,7 +918,7 @@ export default function App() {
             case 'lobby': 
             default: 
                 return <Lobby 
-                            onStartGame={handleStartGame} 
+                            onStartGame={startSoloGame} 
                             onCreateMultiplayerGame={handleCreateMultiplayerGame}
                             onJoinMultiplayerGame={handleJoinMultiplayerGame}
                             onResumeGame={handleResumeGame}
