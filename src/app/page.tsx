@@ -146,7 +146,7 @@ const translations = {
 // Utility functions for Sudoku generation
 const sudokuGenerator = {
     generate: (difficulty) => {
-        let puzzle = Array(9).fill(0).map(() => Array(9).fill(0));
+        let puzzle = Array(9).fill(null).map(() => Array(9).fill(null));
         sudokuGenerator.solve(puzzle);
         let holes = { 'Let': 35, 'Medium': 45, 'Svær': 50, 'Meget svær': 55, 'Umulig': 60 }[difficulty] || 35;
         let solution = JSON.parse(JSON.stringify(puzzle));
@@ -154,8 +154,8 @@ const sudokuGenerator = {
         while (attempts > 0) {
             let row = Math.floor(Math.random() * 9);
             let col = Math.floor(Math.random() * 9);
-            if (puzzle[row][col] !== 0) {
-                puzzle[row][col] = 0;
+            if (puzzle[row][col] !== null) {
+                puzzle[row][col] = null;
                 attempts--;
             }
         }
@@ -163,7 +163,7 @@ const sudokuGenerator = {
     },
     solve: (board) => {
         const findEmpty = (b) => {
-            for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (b[r][c] === 0) return [r, c];
+            for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (b[r][c] === null) return [r, c];
             return null;
         };
         const validate = (num, pos, b) => {
@@ -181,7 +181,7 @@ const sudokuGenerator = {
             if (validate(nums[i], empty, board)) {
                 board[empty[0]][empty[1]] = nums[i];
                 if (sudokuGenerator.solve(board)) return true;
-                board[empty[0]][empty[1]] = 0;
+                board[empty[0]][empty[1]] = null;
             }
         }
         return false;
@@ -195,7 +195,7 @@ const calculateInitialCounts = (board) => {
     }
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            if (board[r][c] !== 0) {
+            if (board[r][c] !== null) {
                 counts[board[r][c]]++;
             }
         }
@@ -283,7 +283,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const checkWinCondition = (currentBoard) => {
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
-                if (currentBoard[r][c] === 0 || currentBoard[r][c] === null) {
+                if (currentBoard[r][c] === null) {
                     return; 
                 }
             }
@@ -300,7 +300,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const handleCellClick = (row, col) => {
         setSelectedCell({ row, col });
         const clickedNumber = board[row][col];
-        setHighlightedNumber(clickedNumber !== 0 ? clickedNumber : null);
+        setHighlightedNumber(clickedNumber !== null ? clickedNumber : null);
     };
     
     const clearNotesForValue = (row, col, value) => {
@@ -317,7 +317,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const handleNumberInput = (num) => {
         if (!selectedCell || isGameWon) return;
         const { row, col } = selectedCell;
-        if (gameData.puzzle[row][col] !== 0) return; 
+        if (gameData.puzzle[row][col] !== null) return; 
 
         if (isNoteMode) {
             const newNotes = [...notes];
@@ -348,15 +348,15 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const handleErase = () => {
         if (!selectedCell || isGameWon) return;
         const { row, col } = selectedCell;
-        if (gameData.puzzle[row][col] !== 0) return;
+        if (gameData.puzzle[row][col] !== null) return;
         
         const numToErase = board[row][col];
-        if (numToErase !== 0) {
+        if (numToErase !== null) {
             setNumberCounts(prev => ({ ...prev, [numToErase]: prev[numToErase] - 1 }));
         }
 
         const newBoard = board.map(r => [...r]);
-        newBoard[row][col] = 0;
+        newBoard[row][col] = null;
         setBoard(newBoard);
         const newNotes = [...notes];
         newNotes[row][col].clear();
@@ -367,7 +367,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const handleHint = () => {
         if (hints > 0 && !isGameWon) {
             const emptyCells = [];
-            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board[r][c] === 0) emptyCells.push({r, c});
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board[r][c] === null) emptyCells.push({r, c});
             if(emptyCells.length > 0) {
                 const {r, c} = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 const newBoard = board.map(r => [...r]);
@@ -434,17 +434,17 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                                 const rIdx = Math.floor(boxIdx / 3) * 3 + Math.floor(cellIdx / 3);
                                 const cIdx = (boxIdx % 3) * 3 + (cellIdx % 3);
                                 const cell = board[rIdx][cIdx];
-                                const isGiven = gameData.puzzle[rIdx][cIdx] !== 0;
+                                const isGiven = gameData.puzzle[rIdx][cIdx] !== null;
                                 const isSelected = selectedCell && selectedCell.row === rIdx && selectedCell.col === cIdx;
                                 const isInSelectedRowCol = !isSelected && selectedCell && (rIdx === selectedCell.row || cIdx === selectedCell.col);
                                 const isInSelectedBox = !isSelected && selectedCell && (Math.floor(rIdx / 3) === Math.floor(selectedCell.row / 3) && Math.floor(cIdx / 3) === Math.floor(selectedCell.col / 3));
                                 const isError = !isGiven && errorCells.some(cell => cell.row === rIdx && cell.col === cIdx);
-                                const isHighlighted = !isSelected && highlightedNumber && cell !== 0 && cell === highlightedNumber;
+                                const isHighlighted = !isSelected && highlightedNumber && cell !== null && cell === highlightedNumber;
 
                                 return (
                                     <div key={`${rIdx}-${cIdx}`} onClick={() => handleCellClick(rIdx, cIdx)} className={`flex justify-center items-center aspect-square transition-colors duration-100 cursor-pointer ${isSelected ? 'bg-blue-300' : isHighlighted ? 'bg-yellow-200' : (isInSelectedRowCol || isInSelectedBox) ? 'bg-blue-100' : 'bg-white'}`}>
                                         <div className={`text-3xl ${isGiven ? 'font-bold text-gray-800' : isError ? 'font-medium text-red-500' : 'font-medium text-blue-600'}`}>
-                                            {cell !== 0 ? cell : (
+                                            {cell !== null ? cell : (
                                                 notes[rIdx][cIdx].size > 0 && (
                                                     <div className="grid grid-cols-3 gap-px text-xs text-gray-500 leading-none">
                                                         {[1,2,3,4,5,6,7,8,9].map(n => (<div key={n} className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex justify-center items-center">{notes[rIdx][cIdx].has(n) ? n : ''}</div>))}
@@ -673,11 +673,11 @@ const Profile = ({ t, language, setLanguage }) => {
     };
 
     const difficulties = {
-        'easy': 'easy',
-        'medium': 'medium',
-        'hard': 'hard',
-        'veryhard': 'veryhard',
-        'impossible': 'impossible'
+        'easy': 'Let',
+        'medium': 'Medium',
+        'hard': 'Svær',
+        'veryhard': 'Meget svær',
+        'impossible': 'Umulig'
     };
 
     return (
@@ -692,7 +692,7 @@ const Profile = ({ t, language, setLanguage }) => {
                 <div className="space-y-3">
                     {Object.entries(stats).map(([difficulty, data]) => (
                         <div key={difficulty} className="bg-gray-100 p-4 rounded-lg">
-                            <h3 className="font-bold text-blue-600">{t[difficulties[difficulty]]}</h3>
+                            <h3 className="font-bold text-blue-600">{t[difficulty]}</h3>
                             <div className="flex justify-between items-center text-sm mt-2 text-gray-600 flex-wrap gap-2">
                                 <span>{t.solved}: <span className="font-semibold text-gray-800">{data.solved}</span></span>
                                 <span>{t.bestTime}: <span className="font-semibold text-gray-800">{data.bestTime}</span></span>
