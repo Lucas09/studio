@@ -592,8 +592,19 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
 };
 
 const DailyChallenges = ({ onStartDailyChallenge, t }) => {
-    const today = new Date();
-    const [selectedDay, setSelectedDay] = React.useState(today.getDate());
+    const [today, setToday] = React.useState(null);
+    const [selectedDay, setSelectedDay] = React.useState(null);
+
+    React.useEffect(() => {
+        const now = new Date();
+        setToday(now);
+        setSelectedDay(now.getDate());
+    }, []);
+
+    if (!today) {
+        return null; // or a loading indicator
+    }
+
     const firstDayOfMonth = (new Date(today.getFullYear(), today.getMonth(), 1).getDay() + 6) % 7;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const completedChallenges = [3, 8, 12, 15, 17];
@@ -662,6 +673,15 @@ const Profile = ({ t, language, setLanguage }) => {
         'Meget svær': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
         'Umulig': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
     };
+    
+    const difficultyKeys = {
+        'Let': 'easy',
+        'Medium': 'medium',
+        'Svær': 'hard',
+        'Meget svær': 'veryhard',
+        'Umulig': 'impossible'
+    };
+
 
     return (
         <div className="p-6 bg-gray-50 text-gray-800 flex flex-col h-full">
@@ -675,7 +695,7 @@ const Profile = ({ t, language, setLanguage }) => {
                 <div className="space-y-3">
                     {Object.entries(stats).map(([difficulty, data]) => (
                         <div key={difficulty} className="bg-gray-100 p-4 rounded-lg">
-                            <h3 className="font-bold text-blue-600">{t[difficulty.toLowerCase().replace(/ /g, '').replace('æ', 'ae')] || difficulty}</h3>
+                            <h3 className="font-bold text-blue-600">{t[difficultyKeys[difficulty]] || difficulty}</h3>
                             <div className="flex justify-between items-center text-sm mt-2 text-gray-600 flex-wrap gap-2">
                                 <span>{t.solved}: <span className="font-semibold text-gray-800">{data.solved}</span></span>
                                 <span>{t.bestTime}: <span className="font-semibold text-gray-800">{data.bestTime}</span></span>
