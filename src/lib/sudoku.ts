@@ -1,97 +1,68 @@
-export type Difficulty = 'easy' | 'medium' | 'hard' | 'expert';
 
-export class SudokuGenerator {
-    private board: number[][];
-    private size: number;
-    private boxSize: number;
-
-    constructor(size: number = 9) {
-        this.size = size;
-        this.boxSize = Math.sqrt(size);
-        this.board = this.createEmptyBoard();
-    }
-
-    private createEmptyBoard(): number[][] {
-        return Array.from({ length: this.size }, () => Array(this.size).fill(0));
-    }
-
-    public generate(difficulty: Difficulty): { puzzle: (number | null)[][], solution: number[][] } {
-        this.board = this.createEmptyBoard();
-        this.solve();
-        const solution = JSON.parse(JSON.stringify(this.board));
-        const puzzle = this.createPuzzle(difficulty);
-        return { puzzle, solution };
-    }
-
-    private solve(): boolean {
-        for (let row = 0; row < this.size; row++) {
-            for (let col = 0; col < this.size; col++) {
-                if (this.board[row][col] === 0) {
-                    const numbers = this.shuffle(Array.from({ length: this.size }, (_, i) => i + 1));
-                    for (let num of numbers) {
-                        if (this.isValid(row, col, num)) {
-                            this.board[row][col] = num;
-                            if (this.solve()) {
-                                return true;
-                            }
-                            this.board[row][col] = 0;
-                        }
-                    }
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private isValid(row: number, col: number, num: number): boolean {
-        for (let i = 0; i < this.size; i++) {
-            if (this.board[row][i] === num || this.board[i][col] === num) {
-                return false;
-            }
-        }
-        const startRow = Math.floor(row / this.boxSize) * this.boxSize;
-        const startCol = Math.floor(col / this.boxSize) * this.boxSize;
-        for (let i = 0; i < this.boxSize; i++) {
-            for (let j = 0; j < this.boxSize; j++) {
-                if (this.board[startRow + i][startCol + j] === num) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private createPuzzle(difficulty: Difficulty): (number | null)[][] {
-        let attempts: number;
+// --- Utility functions for Sudoku generation ---
+export const sudokuGenerator = {
+    generate: (difficulty) => {
+        let puzzle = Array(9).fill(null).map(() => Array(9).fill(null));
+        sudokuGenerator.solve(puzzle);
+        let holes;
         switch (difficulty) {
-            case 'easy': attempts = 40; break;
-            case 'medium': attempts = 50; break;
-            case 'hard': attempts = 55; break;
-            case 'expert': attempts = 60; break;
-            default: attempts = 45;
+            case 'Let':
+            case 'Easy':
+                holes = 35;
+                break;
+            case 'Medium':
+                holes = 45;
+                break;
+            case 'Svær':
+            case 'Hard':
+                holes = 50;
+                break;
+            case 'Meget svær':
+            case 'Very Hard':
+                holes = 55;
+                break;
+            case 'Umulig':
+            case 'Impossible':
+                holes = 60;
+                break;
+            default:
+                holes = 35;
         }
-
-        let puzzle: (number | null)[][] = JSON.parse(JSON.stringify(this.board));
-        let removed = 0;
-
-        while (removed < attempts) {
-            let row = Math.floor(Math.random() * this.size);
-            let col = Math.floor(Math.random() * this.size);
-
+        let solution = JSON.parse(JSON.stringify(puzzle));
+        let attempts = holes;
+        while (attempts > 0) {
+            let row = Math.floor(Math.random() * 9);
+            let col = Math.floor(Math.random() * 9);
             if (puzzle[row][col] !== null) {
                 puzzle[row][col] = null;
-                removed++;
+                attempts--;
             }
         }
-        return puzzle;
-    }
-
-    private shuffle(array: any[]): any[] {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+        return { puzzle, solution };
+    },
+    solve: (board) => {
+        const findEmpty = (b) => {
+            for (let r = 0; r < 9; r++) for (let c = 0; c < 9; c++) if (b[r][c] === null) return [r, c];
+            return null;
+        };
+        const validate = (num, pos, b) => {
+            const [r, c] = pos;
+            for (let i = 0; i < 9; i++) if (b[r][i] === num && c !== i) return false;
+            for (let i = 0; i < 9; i++) if (b[i][c] === num && r !== i) return false;
+            const boxRow = Math.floor(r / 3) * 3, boxCol = Math.floor(c / 3) * 3;
+            for (let i = boxRow; i < boxRow + 3; i++) for (let j = boxCol; j < boxCol + 3; j++) if (b[i][j] === num && (i !== r || j !== c)) return false;
+            return true;
+        };
+        const empty = findEmpty(board);
+        if (!empty) return true;
+        const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < nums.length; i++) {
+            if (validate(nums[i], empty, board)) {
+                board[empty[0]][empty[1]] = nums[i];
+                if (sudokuGenerator.solve(board)) return true;
+                board[empty[0]][empty[1]] = null;
+            }
         }
-        return array;
+        return false;
     }
-}
+};
