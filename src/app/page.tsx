@@ -3,7 +3,7 @@
 "use client";
 import React from 'react';
 import { Home, Calendar, User, ArrowLeft, Star, Trophy, BrainCircuit, Users, Swords, HelpCircle, Lightbulb, History, Video, Repeat, Eraser, Copy, Check, Settings } from 'lucide-react';
-import { useToast } from "@/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast";
 
 // --- TRANSLATIONS ---
 const translations = {
@@ -29,6 +29,7 @@ const translations = {
         enterGameId: 'Indtast Spil ID',
         join: 'Deltag',
         invalidGameId: 'Indtast venligst en gyldig 6-cifret spilkode.',
+        gameNotFound: 'Spil ikke fundet. Tjek koden og prøv igen.',
 
         // Difficulties
         easy: 'Let',
@@ -96,6 +97,7 @@ const translations = {
         enterGameId: 'Enter Game ID',
         join: 'Join',
         invalidGameId: 'Please enter a valid 6-character game code.',
+        gameNotFound: 'Game not found. Check the code and try again.',
 
         // Difficulties
         easy: 'Easy',
@@ -247,6 +249,10 @@ const Confetti = () => {
 const GameBoard = ({ gameData, onBack, onSave, t }) => {
     const [board, setBoard] = React.useState(JSON.parse(JSON.stringify(gameData.board || gameData.puzzle)));
     const [notes, setNotes] = React.useState(() => {
+        if (gameData.notes && gameData.notes.length > 0 && gameData.notes[0] && gameData.notes[0][0] && 'size' in gameData.notes[0][0]) {
+             // Already Set objects
+             return gameData.notes;
+        }
         if (gameData.notes && gameData.notes.length > 0) {
             return gameData.notes.map(row => row.map(cellNotes => new Set(cellNotes)));
         }
@@ -370,7 +376,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
             for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board[r][c] === null) emptyCells.push({r, c});
             if(emptyCells.length > 0) {
                 const {r, c} = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-                const newBoard = board.map(r => [...r]);
+                const newBoard = board.map(b => [...b]);
                 const hintNum = gameData.solution[r][c];
                 newBoard[r][c] = hintNum;
                 setBoard(newBoard);
@@ -433,6 +439,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                             {Array.from({ length: 9 }).map((_, cellIdx) => {
                                 const rIdx = Math.floor(boxIdx / 3) * 3 + Math.floor(cellIdx / 3);
                                 const cIdx = (boxIdx % 3) * 3 + (cellIdx % 3);
+                                if (!board[rIdx]) return null;
                                 const cell = board[rIdx][cIdx];
                                 const isGiven = gameData.puzzle[rIdx][cIdx] !== null;
                                 const isSelected = selectedCell && selectedCell.row === rIdx && selectedCell.col === cIdx;
@@ -445,7 +452,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                                     <div key={`${rIdx}-${cIdx}`} onClick={() => handleCellClick(rIdx, cIdx)} className={`flex justify-center items-center aspect-square transition-colors duration-100 cursor-pointer ${isSelected ? 'bg-blue-300' : isHighlighted ? 'bg-yellow-200' : (isInSelectedRowCol || isInSelectedBox) ? 'bg-blue-100' : 'bg-white'}`}>
                                         <div className={`text-3xl ${isGiven ? 'font-bold text-gray-800' : isError ? 'font-medium text-red-500' : 'font-medium text-blue-600'}`}>
                                             {cell !== null ? cell : (
-                                                notes[rIdx][cIdx].size > 0 && (
+                                                notes[rIdx] && notes[rIdx][cIdx] && notes[rIdx][cIdx].size > 0 && (
                                                     <div className="grid grid-cols-3 gap-px text-xs text-gray-500 leading-none">
                                                         {[1,2,3,4,5,6,7,8,9].map(n => (<div key={n} className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex justify-center items-center">{notes[rIdx][cIdx].has(n) ? n : ''}</div>))}
                                                     </div>
@@ -549,7 +556,7 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
                 </div>
 
                 <div className="flex flex-col space-y-4">
-                     <button onClick={() => onStartGame(difficulty, 'Alene')} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">{t.startGameAlone}</button>
+                     <button onClick={() => onStartGame({difficulty, mode: 'Alene'})} className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">{t.startGameAlone}</button>
                     <button onClick={handleMultiplayerClick} className={`w-full text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-colors ${gameMode === 'multi' ? 'bg-purple-600' : 'bg-purple-500 hover:bg-purple-600'}`}>{t.startGameMultiplayer}</button>
                 </div>
 
@@ -568,8 +575,8 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
                              <>
                                 <h3 className="font-semibold mb-3 text-center">{t.createNewGame}</h3>
                                 <div className="flex space-x-4 mb-4">
-                                    <button onClick={() => onCreateMultiplayerGame(difficulty, 'Sammen')} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Users className="mr-2 h-5 w-5" /> {t.coop}</button>
-                                    <button onClick={() => onCreateMultiplayerGame(difficulty, 'Mod hinanden')} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Swords className="mr-2 h-5 w-5" /> {t.vs}</button>
+                                    <button onClick={() => onCreateMultiplayerGame({difficulty, mode: 'Sammen'})} className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Users className="mr-2 h-5 w-5" /> {t.coop}</button>
+                                    <button onClick={() => onCreateMultiplayerGame({difficulty, mode: 'Mod hinanden'})} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg flex items-center justify-center"><Swords className="mr-2 h-5 w-5" /> {t.vs}</button>
                                 </div>
                              </>
                         )}
@@ -737,16 +744,31 @@ export default function App() {
         }
     };
 
-    const startGame = (difficulty, mode, gameId = null) => {
-        const { puzzle, solution } = sudokuGenerator.generate(difficulty);
-        const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
-        const initialNotes = Array(9).fill(0).map(() => Array(9).fill(0).map(() => []));
-        const newGameData = { puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode, gameId, board: puzzle.map(row => [...row]), notes: initialNotes, errors: 0, timer: 0 };
+    const startGame = (data) => {
+        const { puzzle, solution, difficulty, mode, gameId } = data;
+        const initialNotes = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
+        const newGameData = { 
+            puzzle, 
+            solution, 
+            difficulty, 
+            mode, 
+            gameId, 
+            board: puzzle.map(row => [...row]), 
+            notes: initialNotes, 
+            errors: 0, 
+            timer: 0 
+        };
         setGameData(newGameData);
         setActiveView('game');
         if (mode === 'Alene') {
              handleSaveGame(newGameData);
         }
+    };
+
+    const handleStartGame = ({difficulty, mode}) => {
+        const { puzzle, solution } = sudokuGenerator.generate(difficulty);
+        const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
+        startGame({ puzzle, solution, difficulty: t[difficultyKey] || difficulty, mode });
     };
 
     const handleResumeGame = () => {
@@ -760,29 +782,50 @@ export default function App() {
         }
     };
     
-    const handleCreateMultiplayerGame = (difficulty, mode) => {
+    const handleCreateMultiplayerGame = ({difficulty, mode}) => {
+        if (typeof window === 'undefined') return;
         const gameId = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const { puzzle, solution } = sudokuGenerator.generate(difficulty);
+        const difficultyKey = Object.keys(t).find(key => t[key] === difficulty) || difficulty;
+        const multiplayerGameData = {
+            puzzle,
+            solution,
+            difficulty: t[difficultyKey] || difficulty,
+            mode,
+        };
+        localStorage.setItem(`multiplayer-game-${gameId}`, JSON.stringify(multiplayerGameData));
+        
         setMultiplayerInfo({ gameId, difficulty, mode });
         setActiveView('multiplayerLobby');
     };
 
     const handleJoinMultiplayerGame = (gameId) => {
+        if (typeof window === 'undefined') return;
+
         if (gameId && gameId.length === 6) {
-            const difficulty = 'Medium';
-            const mode = 'Sammen';
-            startGame(difficulty, mode, gameId);
+            const gameDataJSON = localStorage.getItem(`multiplayer-game-${gameId}`);
+            if (gameDataJSON) {
+                const storedGameData = JSON.parse(gameDataJSON);
+                startGame({ ...storedGameData, gameId });
+            } else {
+                toast({
+                    title: "Game Not Found",
+                    description: t.gameNotFound,
+                    variant: "destructive",
+                });
+            }
         } else {
             toast({
                 title: "Invalid Game ID",
                 description: t.invalidGameId,
                 variant: "destructive",
-            })
+            });
         }
     };
     
     const handleStartDailyChallenge = (day) => {
         if (day) {
-            startGame('Medium', `${t.dailyChallengesTitle} - Dag ${day}`);
+            handleStartGame({difficulty: 'Medium', mode: `${t.dailyChallengesTitle} - Dag ${day}`});
         }
     };
     
@@ -804,7 +847,7 @@ export default function App() {
                 return <MultiplayerLobby 
                             gameId={multiplayerInfo.gameId} 
                             onBack={handleGameExit}
-                            onStart={() => startGame(multiplayerInfo.difficulty, multiplayerInfo.mode, multiplayerInfo.gameId)}
+                            onStart={() => handleJoinMultiplayerGame(multiplayerInfo.gameId)}
                             t={t}
                         />;
             case 'daily': 
@@ -814,7 +857,7 @@ export default function App() {
             case 'lobby': 
             default: 
                 return <Lobby 
-                            onStartGame={startGame} 
+                            onStartGame={handleStartGame} 
                             onCreateMultiplayerGame={handleCreateMultiplayerGame}
                             onJoinMultiplayerGame={handleJoinMultiplayerGame}
                             onResumeGame={handleResumeGame}
@@ -864,5 +907,3 @@ export default function App() {
         </div>
     );
 }
-
-    
