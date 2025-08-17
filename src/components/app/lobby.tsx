@@ -2,7 +2,7 @@
 "use client";
 import React from 'react';
 import { History, Users, Sword } from 'lucide-react';
-import type { GameDifficulty, GameMode } from '@/services/game-service';
+import type { GameDifficulty, GameMode } from '@/lib/game-state';
 
 const Lobby = ({ onStartGame, onResumeGame, onCreateMultiplayerGame, onJoinMultiplayerGame, t }) => {
     const [difficulty, setDifficulty] = React.useState<GameDifficulty>('Easy');

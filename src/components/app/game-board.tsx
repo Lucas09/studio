@@ -2,11 +2,12 @@
 "use client";
 import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, BrainCircuit, Repeat, Video } from 'lucide-react';
-import type { Game, Player } from '@/services/game-service';
-import { getGameUpdates, updateGame, endGame } from '@/services/game-service';
+import type { Game, Player } from '@/lib/game-state';
+import { updateGame, endGame } from '@/services/game-service';
 import { getAdaptiveHint } from '@/ai/flows/adaptive-hints';
 import type { AdaptiveHintResponse } from '@/ai/schema/adaptive-hints';
 import { sudokuGenerator } from '@/lib/sudoku';
+import { useGameUpdates } from '@/hooks/use-game-updates';
 
 
 const calculateInitialCounts = (board) => {
@@ -67,7 +68,7 @@ const Confetti = () => {
 
 
 const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
-    const [gameData, setGameData] = React.useState<Game>(initialGameData);
+    const { gameData, setGameData } = useGameUpdates(initialGameData.gameId, initialGameData);
     const [isNoteMode, setIsNoteMode] = React.useState(false);
     const [selectedCell, setSelectedCell] = React.useState(null);
     const [highlightedNumber, setHighlightedNumber] = React.useState(null);
@@ -97,22 +98,14 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 
     // Real-time updates for multiplayer
     React.useEffect(() => {
-        if (isMultiplayer && gameData.gameId) {
-            const unsubscribe = getGameUpdates(gameData.gameId, (updatedGame) => {
-                if (updatedGame) {
-                    setGameData(updatedGame);
-                     if (updatedGame.status === 'finished') {
-                        if (updatedGame.winner) {
-                           setIsGameWon(true);
-                        } else {
-                           setIsGameOver(true);
-                        }
-                    }
-                }
-            });
-            return () => unsubscribe();
+        if (gameData?.status === 'finished') {
+            if (gameData.winner && gameData.winner === playerId) {
+                setIsGameWon(true);
+            } else {
+                setIsGameOver(true);
+            }
         }
-    }, [isMultiplayer, gameData.gameId]);
+    }, [gameData, playerId]);
     
     // Timer logic
     React.useEffect(() => {
@@ -133,7 +126,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [gameData.status, playerState, onSave, isMultiplayer, gameData.gameId, playerId, isGameWon, isGameOver]);
+    }, [gameData.status, playerState, onSave, isMultiplayer, gameData.gameId, playerId, isGameWon, isGameOver, setGameData]);
 
     React.useEffect(() => {
         if (board) {
@@ -336,7 +329,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         </div>
     );
     
-    if (!playerState || !board || !notes) {
+    if (!gameData || !playerState || !board || !notes) {
         return <div className="flex justify-center items-center h-full">Loading...</div>;
     }
 
@@ -437,5 +430,3 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 };
 
 export default GameBoard;
-
-    

@@ -3,31 +3,28 @@
 import React from 'react';
 import { Copy, Users, Sword } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-import type { Game } from '@/services/game-service';
-import { getGameUpdates, startGame } from '@/services/game-service';
+import type { Game } from '@/lib/game-state';
+import { startGame } from '@/services/game-service';
+import { useGameUpdates } from '@/hooks/use-game-updates';
 
-const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => {
+const MultiplayerLobby = ({ game, t, setActiveView, setGameData: setGameDataProp, playerId }) => {
     const { toast } = useToast();
+    const { gameData, setGameData } = useGameUpdates(game?.gameId, game);
 
     // Listen for game updates
     React.useEffect(() => {
-        if (game?.gameId) {
-            const unsubscribe = getGameUpdates(game.gameId, (updatedGame) => {
-                if (updatedGame) {
-                    setGameData(updatedGame);
-                    // If game becomes active, switch to game board view
-                    if (updatedGame.status === 'active' && Object.keys(updatedGame.players).length > 1) {
-                        setActiveView('game');
-                    }
-                }
-            });
-            return () => unsubscribe();
+        if (gameData) {
+            setGameDataProp(gameData);
+             // If game becomes active, switch to game board view
+            if (gameData.status === 'active' && Object.keys(gameData.players).length > 1) {
+                setActiveView('game');
+            }
         }
-    }, [game?.gameId, setGameData, setActiveView]);
+    }, [gameData, setActiveView, setGameDataProp]);
 
     const handleCopyCode = () => {
-        if (game?.gameId) {
-            navigator.clipboard.writeText(game.gameId);
+        if (gameData?.gameId) {
+            navigator.clipboard.writeText(gameData.gameId);
             toast({
                 title: "Copied!",
                 description: "Game code copied to clipboard.",
@@ -36,18 +33,18 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => 
     };
 
     const handleStartGame = () => {
-        if(game?.gameId && Object.keys(game.players).length > 1) {
+        if(gameData?.gameId && Object.keys(gameData.players).length > 1) {
             // The creator of the game should be the one starting it.
-             startGame(game.gameId);
+             startGame(gameData.gameId);
         }
     };
     
-    if (!game) {
+    if (!gameData) {
         return <div className="flex justify-center items-center h-full">{t.gameNotFound}</div>
     }
 
-    const isCoop = game.mode === 'Co-op';
-    const playerIds = Object.keys(game.players || {});
+    const isCoop = gameData.mode === 'Co-op';
+    const playerIds = Object.keys(gameData.players || {});
     const hasTwoPlayers = playerIds.length > 1;
     // The player who created the game is the first one in the playerIds array.
     const isCreator = playerIds[0] === playerId;
@@ -59,7 +56,7 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => 
                 <p className="text-gray-600 mb-6">{t.shareCode}</p>
 
                 <div className="bg-gray-100 border-dashed border-2 border-gray-300 rounded-xl p-4 flex items-center justify-center mb-6">
-                    <span className="text-2xl font-mono font-bold text-gray-700 mr-4 tracking-widest">{game.gameId}</span>
+                    <span className="text-2xl font-mono font-bold text-gray-700 mr-4 tracking-widest">{gameData.gameId}</span>
                     <button onClick={handleCopyCode} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors">
                         <Copy className="h-6 w-6 text-gray-600" />
                     </button>
@@ -92,5 +89,3 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => 
 };
 
 export default MultiplayerLobby;
-
-    
