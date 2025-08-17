@@ -1,5 +1,4 @@
 
-
 import { db } from '@/lib/firebase';
 import { sudokuGenerator } from '@/lib/sudoku';
 import { collection, doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
@@ -48,7 +47,7 @@ export interface FirestoreGame {
 export interface Game {
     gameId?: string;
     puzzle: (number | null)[][];
-    solution: number[][];
+    solution: (number | null)[][];
     difficulty: GameDifficulty;
     mode: GameMode;
     status: GameStatus;
@@ -137,7 +136,8 @@ export const gameService = {
         };
 
         await updateDoc(gameRef, {
-            [`players.${playerId}`]: newPlayer
+            [`players.${playerId}`]: newPlayer,
+            status: 'active'
         });
         
         const updatedGameSnap = await getDoc(gameRef);

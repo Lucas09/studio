@@ -42,7 +42,7 @@ export default function App() {
                 ...currentGameState,
                  puzzle: Array.isArray(puzzle) ? puzzle : Object.values(puzzle),
                  solution: Array.isArray(solution) ? solution : Object.values(solution),
-                 notes: currentGameState.notes ? gameService.serializeNotes(currentGameState.notes) : "[]",
+                 notes: currentGameState.notes ? sudokuGenerator.notesToString(currentGameState.notes) : "[]",
             };
             localStorage.setItem('savedSudokuGame', JSON.stringify(gameToSave));
         }
@@ -92,7 +92,7 @@ export default function App() {
                      players: {
                          'solo': {
                              ...soloPlayer,
-                             notes: savedGameData.notes ? gameService.deserializeNotes(savedGameData.notes) : Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))
+                             notes: savedGameData.notes ? sudokuGenerator.stringToNotes(savedGameData.notes) : Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))
                          }
                      }
                 });
