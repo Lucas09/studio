@@ -592,8 +592,8 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
 };
 
 const DailyChallenges = ({ onStartDailyChallenge, t }) => {
-    const [selectedDay, setSelectedDay] = React.useState(null);
     const today = new Date();
+    const [selectedDay, setSelectedDay] = React.useState(today.getDate());
     const firstDayOfMonth = (new Date(today.getFullYear(), today.getMonth(), 1).getDay() + 6) % 7;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const completedChallenges = [3, 8, 12, 15];
@@ -760,7 +760,9 @@ export default function App() {
     };
     
     const handleStartDailyChallenge = (day) => {
-        startGame('Medium', `${t.dailyChallengesTitle} - Dag ${day}`);
+        if (day) {
+            startGame('Medium', `${t.dailyChallengesTitle} - Dag ${day}`);
+        }
     };
     
     const handleGameExit = () => {
