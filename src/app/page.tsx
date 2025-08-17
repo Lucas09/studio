@@ -37,6 +37,11 @@ export default function App() {
                     ...updatedGame,
                     notes: gameService.deserializeNotes(updatedGame.notes)
                 });
+            } else if (updatedGame) {
+                setGameData({
+                    ...updatedGame,
+                    notes: gameService.deserializeNotes(updatedGame.notes)
+                });
             }
         });
 
@@ -85,7 +90,7 @@ export default function App() {
                 const savedGameData = JSON.parse(savedGameJSON);
                 setGameData({
                     ...savedGameData,
-                    notes: savedGameData.notes.map(row => row.map(cell => new Set(cell)))
+                    notes: savedGameData.notes ? gameService.deserializeNotes(savedGameData.notes) : Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))
                 });
                 setActiveView('game');
             }
@@ -169,6 +174,7 @@ export default function App() {
                 return <MultiplayerLobby 
                             gameId={gameData.gameId} 
                             onBack={handleGameExit}
+                            playerCount={gameData.playerCount}
                             t={t}
                         />;
             case 'daily': 

@@ -63,7 +63,6 @@ const Confetti = () => {
 
 const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const [gameData, setGameData] = React.useState(initialGameData);
-    const { board, notes, timer, errors, hints, errorCells, puzzle, solution, mode, gameId } = gameData;
     const [isNoteMode, setIsNoteMode] = React.useState(false);
     const [selectedCell, setSelectedCell] = React.useState(null);
     const [highlightedNumber, setHighlightedNumber] = React.useState(null);
@@ -71,7 +70,9 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const [isGameWon, setIsGameWon] = React.useState(false);
     const [isAdPlaying, setIsAdPlaying] = React.useState(false);
     const [adMessage, setAdMessage] = React.useState('');
-    const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(board));
+    const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(initialGameData.board));
+
+    const { board, notes, timer, errors, hints, errorCells, puzzle, solution, mode, gameId } = gameData;
 
     React.useEffect(() => {
         if (mode === 'Solo') {
@@ -110,11 +111,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
         const updatedGame = { ...gameData, ...updates };
         setGameData(updatedGame);
         if (mode !== 'Solo') {
-            const { notes, ...restOfGame } = updatedGame;
-            gameService.updateGame(gameId, {
-                ...restOfGame,
-                notes: gameService.serializeNotes(notes),
-            });
+            gameService.updateGame(gameId, updatedGame);
         }
     };
     
@@ -299,7 +296,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
                     <button onClick={() => setIsNoteMode(!isNoteMode)} className={`flex flex-col items-center p-3 rounded-lg transition-colors ${isNoteMode ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}><BrainCircuit /><span className="text-xs font-semibold mt-1">{t.notes}</span></button>
                 </div>
                 <div className="grid grid-cols-9 gap-1 sm:gap-2">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (<button key={num} onClick={() => handleNumberInput(num)} disabled={numberCounts[num] === 9} className="bg-gray-200 hover:bg-blue-200 text-2xl font-bold rounded-lg p-3 aspect-square flex justify-center items-center transition-transform transform hover:scale-105 disabled:opacity-30 disabled:pointer-events-none">{num}</button>))}
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (<button key={num} onClick={() => handleNumberInput(num)} disabled={numberCounts[num] >= 9} className="bg-gray-200 hover:bg-blue-200 text-2xl font-bold rounded-lg p-3 aspect-square flex justify-center items-center transition-transform transform hover:scale-105 disabled:opacity-30 disabled:pointer-events-none">{num}</button>))}
                 </div>
             </div>
         </div>

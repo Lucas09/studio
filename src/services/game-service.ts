@@ -50,6 +50,7 @@ function generateGameId() {
 // Firestore strips out empty arrays and custom objects like Set, so we need to serialize/deserialize notes.
 const serializeNotes = (notes) => {
     const serialized = {};
+    if (!notes) return serialized;
     for(let r=0; r<9; r++) {
         for(let c=0; c<9; c++) {
             if (notes[r] && notes[r][c] && notes[r][c].size > 0) {
@@ -139,6 +140,10 @@ const updateGame = async (gameId: string, updates: Partial<Omit<Game, 'puzzle' |
 
     if (updates.board) {
         updatesForStore.board = arrayToBoardObject(updates.board);
+    }
+    
+    if (updates.notes) {
+        updatesForStore.notes = serializeNotes(updates.notes);
     }
 
     await updateDoc(gameRef, updatesForStore);

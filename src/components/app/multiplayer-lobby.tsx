@@ -4,9 +4,9 @@ import React from 'react';
 import { ArrowLeft, Copy, Check } from 'lucide-react';
 import { gameService } from '@/services/game-service';
 
-const MultiplayerLobby = ({ gameId, onBack, t }) => {
+const MultiplayerLobby = ({ gameId, onBack, t, playerCount: initialPlayerCount }) => {
     const [copied, setCopied] = React.useState(false);
-    const [playerCount, setPlayerCount] = React.useState(1);
+    const [playerCount, setPlayerCount] = React.useState(initialPlayerCount);
 
     React.useEffect(() => {
         if (!gameId) return;
