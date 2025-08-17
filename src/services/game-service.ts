@@ -74,35 +74,37 @@ export const gameService = {
             errorCells: []
         };
         
-        const newGame: Game = {
-            difficulty,
-            mode,
-            puzzle: convertBoardToObject(puzzle),
-            solution: convertBoardToObject(solution),
-            status: 'waiting',
-            players: {
-                [playerId]: initialPlayerState,
-            },
-            createdAt: serverTimestamp(),
-        };
-
-        const gameCollection = collection(db, "games");
-        
-        // Prepare player data for Firestore
+        // Prepare player data for Firestore FIRST
         const firestorePlayerData = {
             ...initialPlayerState,
             board: convertBoardToObject(initialPlayerState.board),
             notes: convertBoardToObject(serializeNotes(initialPlayerState.notes))
         };
 
-        const gameRef = await addDoc(gameCollection, {
-            ...newGame,
+        const newGameDataForFirestore = {
+            difficulty,
+            mode,
+            puzzle: convertBoardToObject(puzzle),
+            solution: convertBoardToObject(solution),
+            status: 'waiting' as GameStatus,
             players: {
                 [playerId]: firestorePlayerData
-            }
-        });
+            },
+            createdAt: serverTimestamp(),
+        };
+
+        const gameCollection = collection(db, "games");
+        const gameRef = await addDoc(gameCollection, newGameDataForFirestore);
         
-        return { ...newGame, gameId: gameRef.id, players: { [playerId]: initialPlayerState } };
+        return { 
+            gameId: gameRef.id,
+            difficulty,
+            mode,
+            puzzle: puzzle, // Return original format
+            solution: solution, // Return original format
+            status: 'waiting',
+            players: { [playerId]: initialPlayerState } // Return original format
+        };
     },
 
     joinGame: async (gameId: string, playerId: string): Promise<Game | null> => {
@@ -136,10 +138,31 @@ export const gameService = {
             status: 'active'
         });
 
-        // Re-fetch the game data to return the latest state
         const updatedGameSnap = await getDoc(gameRef);
-        const updatedGameData = updatedGameSnap.data() as Game;
-        return { ...updatedGameData, gameId: updatedGameSnap.id };
+        const rawGameData = updatedGameSnap.data();
+        if (!rawGameData) return null;
+
+        const players = {};
+        if (rawGameData.players) {
+            for(const pId in rawGameData.players) {
+                const player = rawGameData.players[pId];
+                players[pId] = {
+                    ...player,
+                    board: convertObjectToBoard(player.board as any),
+                    notes: deserializeNotes(player.notes)
+                }
+            }
+        }
+        
+        return {
+            gameId: updatedGameSnap.id,
+            puzzle: convertObjectToBoard(rawGameData.puzzle),
+            solution: convertObjectToBoard(rawGameData.solution),
+            difficulty: rawGameData.difficulty,
+            mode: rawGameData.mode,
+            status: rawGameData.status,
+            players: players
+        };
     },
 
     getGameUpdates: (gameId: string, callback: (game: Game) => void) => {
