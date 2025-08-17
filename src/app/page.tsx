@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import { Home, Swords, Trophy, UserCircle, Download } from 'lucide-react';
+import { Home, Trophy, UserCircle } from 'lucide-react';
 import Lobby from '@/components/app/lobby';
 import GameBoard from '@/components/app/game-board';
 import DailyChallenges from '@/components/app/daily-challenges';
@@ -20,10 +20,14 @@ type View = 'lobby' | 'game' | 'daily' | 'profile' | 'multiplayer-lobby';
 const App = () => {
     const [view, setView] = React.useState<View>('lobby');
     const [gameId, setGameId] = React.useState<string | null>(null);
-    const { gameData, setGameData } = useGameUpdates(gameId);
+    const [soloGameData, setSoloGameData] = React.useState<Game | null>(null);
+    const { gameData: multiplayerGameData, setGameData: setMultiplayerGameData } = useGameUpdates(gameId);
     const [language, setLanguage] = React.useState<'da' | 'en'>('da');
     const [playerId, setPlayerId] = React.useState('');
     const { toast } = useToast();
+
+    const gameData = gameId ? multiplayerGameData : soloGameData;
+    const setGameData = gameId ? setMultiplayerGameData : setSoloGameData;
 
     React.useEffect(() => {
         let storedPlayerId = localStorage.getItem('sudokuPlayerId');
@@ -35,10 +39,10 @@ const App = () => {
     }, []);
 
     React.useEffect(() => {
-        if (gameData?.status === 'active' && view !== 'game' && gameData.gameId) {
+        if (multiplayerGameData?.status === 'active' && view !== 'game' && multiplayerGameData.gameId) {
           setView('game');
         }
-    }, [gameData, view]);
+    }, [multiplayerGameData, view]);
 
 
     const t = translations[language];
@@ -63,11 +67,8 @@ const App = () => {
                 }
             }
         };
-        setGameData(newGame);
+        setSoloGameData(newGame);
         setView('game');
-        if (options.mode === 'Solo') {
-            handleSaveGame(newGame);
-        }
     };
     
     const handleCreateMultiplayerGame = async (options: { difficulty: GameDifficulty, mode: GameMode }) => {
@@ -99,7 +100,7 @@ const App = () => {
         if (savedGameString) {
             const savedGame = JSON.parse(savedGameString);
             
-            // Critical fix: Ensure all stringified board data is parsed back into the correct format.
+            // This is the critical fix. Ensure all stringified board data is parsed back into the correct format.
             const playerState = savedGame.players[playerId];
             if (playerState) {
                 if(playerState.notes && typeof playerState.notes === 'string') {
@@ -110,7 +111,7 @@ const App = () => {
                 }
             }
             
-            // Critical fix: Reconstruct the full game object for the state, ensuring puzzle/solution are also parsed.
+            // Reconstruct the full game object for the state, ensuring puzzle/solution are also parsed.
             const gameToResume: Game = {
                 ...savedGame,
                 puzzle: sudokuGenerator.stringToBoard(savedGame.puzzle),
@@ -121,7 +122,7 @@ const App = () => {
                 }
             };
 
-            setGameData(gameToResume);
+            setSoloGameData(gameToResume);
             setView('game');
         }
     };
@@ -151,7 +152,7 @@ const App = () => {
         if (gameData?.mode === 'Solo') {
             handleSaveGame(gameData);
         }
-        setGameData(null);
+        setSoloGameData(null);
         setGameId(null);
         setView('lobby');
     };
@@ -167,13 +168,13 @@ const App = () => {
         
         switch (view) {
             case 'game':
-                return gameData ? <GameBoard initialGameData={gameData} onBack={handleBackToLobby} onSave={handleSaveGame} t={t} playerId={playerId} /> : <div>{t.gameNotFound}</div>;
+                return gameData ? <GameBoard initialGameData={gameData} onBack={handleBackToLobby} onSave={handleSaveGame} t={t} playerId={playerId} gameId={gameId} setGameData={setGameData} /> : <div>{t.gameNotFound}</div>;
             case 'daily':
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile':
                 return <Profile t={t} language={language} setLanguage={setLanguage} />;
             case 'multiplayer-lobby':
-                 return gameData ? <MultiplayerLobby game={gameData} t={t} setActiveView={setView} setGameData={setGameData} playerId={playerId}/> : <div>{t.gameNotFound}</div>
+                 return gameData ? <MultiplayerLobby game={gameData} t={t} setActiveView={setView} setGameData={setMultiplayerGameData} playerId={playerId}/> : <div>{t.gameNotFound}</div>
             case 'lobby':
             default:
                 return <Lobby onStartGame={startSoloGame} onResumeGame={handleResumeGame} onCreateMultiplayerGame={handleCreateMultiplayerGame} onJoinMultiplayerGame={handleJoinMultiplayerGame} t={t} />;

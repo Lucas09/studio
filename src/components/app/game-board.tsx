@@ -4,7 +4,6 @@ import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, Repeat, Video } from 'lucide-react';
 import type { Game, Player } from '@/lib/game-state';
 import { updateGame, endGame } from '@/services/game-service';
-import { sudokuGenerator } from '@/lib/sudoku';
 import { useGameUpdates } from '@/hooks/use-game-updates';
 
 
@@ -65,8 +64,10 @@ const Confetti = () => {
 };
 
 
-const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
-    const { gameData, setGameData } = useGameUpdates(initialGameData.gameId, initialGameData);
+const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGameData }) => {
+    const isMultiplayer = !!gameId;
+    const gameData = initialGameData;
+
     const [isNoteMode, setIsNoteMode] = React.useState(false);
     const [selectedCell, setSelectedCell] = React.useState(null);
     const [highlightedNumber, setHighlightedNumber] = React.useState(null);
@@ -76,7 +77,6 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const [adMessage, setAdMessage] = React.useState('');
 
     
-    const isMultiplayer = gameData.mode !== 'Solo' && !gameData.mode.startsWith('Daily');
     const playerState: Player | undefined = gameData.players?.[playerId];
     const opponentId = isMultiplayer ? Object.keys(gameData.players || {}).find(id => id !== playerId) : null;
     const opponentState: Player | undefined = opponentId ? gameData.players?.[opponentId] : undefined;
@@ -92,7 +92,6 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const puzzle = gameData.puzzle;
     const solution = gameData.solution;
 
-    // Real-time updates for multiplayer
     React.useEffect(() => {
         if (gameData?.status === 'finished') {
             if (gameData.winner && gameData.winner === playerId) {
@@ -103,12 +102,11 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }
     }, [gameData, playerId]);
     
-    // Save game state for solo games whenever it changes
     React.useEffect(() => {
-        if (gameData.mode === 'Solo') {
+        if (!isMultiplayer) {
             onSave(gameData);
         }
-    }, [gameData, onSave]);
+    }, [gameData, onSave, isMultiplayer]);
 
     // Timer logic
     React.useEffect(() => {
@@ -128,7 +126,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [gameData.status, playerState, isMultiplayer, gameData.gameId, playerId, isGameWon, isGameOver, setGameData]);
+    }, [gameData, playerState, isMultiplayer, setGameData, isGameWon, isGameOver]);
 
     React.useEffect(() => {
         if (board) {
@@ -166,11 +164,10 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             }
         }
         
-        // Final check against solution
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
                 if (currentBoard[r][c] !== solution[r][c]) {
-                     return; // Found a mistake, not a win
+                     return;
                 }
             }
         }
@@ -198,15 +195,12 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const clearNotesForValue = (currentNotes, row, col, value) => {
         if(!currentNotes) return [];
         const newNotes = currentNotes.map(r => r.map(c => new Set(c)));
-        // Clear row
         for (let i = 0; i < 9; i++) {
             newNotes[row][i].delete(value);
         }
-        // Clear column
         for (let i = 0; i < 9; i++) {
             newNotes[i][col].delete(value);
         }
-        // Clear 3x3 box
         const startRow = Math.floor(row / 3) * 3;
         const startCol = Math.floor(col / 3) * 3;
         for (let r = startRow; r < startRow + 3; r++) {
