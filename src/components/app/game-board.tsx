@@ -269,6 +269,15 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 
     const displayedBoard = gameData.mode === 'Co-op' && opponentState ? opponentState.board : board;
 
+    const difficultyTranslations = {
+        'Easy': t.easy,
+        'Medium': t.medium,
+        'Hard': t.hard,
+        'Very Hard': t.veryhard,
+        'Impossible': t.impossible
+    };
+    const translatedDifficulty = difficultyTranslations[gameData.difficulty] || gameData.difficulty;
+
     return (
         <div className="p-4 bg-gray-50 text-gray-800 flex flex-col h-full justify-between">
             {(isGameWon || gameData.winner === playerId) && <Confetti />}
@@ -281,7 +290,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <button onClick={onBack} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><ArrowLeft /></button>
-                    <div className="text-lg font-semibold">{gameData.difficulty} ({gameData.mode})</div>
+                    <div className="text-lg font-semibold">{translatedDifficulty} ({gameData.mode})</div>
                     <div className="flex items-center space-x-4">
                         <div className="text-red-500 font-bold text-lg">{t.errors}: {errors}/3</div>
                         <div className="font-mono text-lg">{formatTime(timer)}</div>
