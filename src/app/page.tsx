@@ -596,7 +596,7 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
     const [selectedDay, setSelectedDay] = React.useState(today.getDate());
     const firstDayOfMonth = (new Date(today.getFullYear(), today.getMonth(), 1).getDay() + 6) % 7;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-    const completedChallenges = [3, 8, 12, 15];
+    const completedChallenges = [3, 8, 12, 15, 17];
     const calendarDays = Array.from({length: daysInMonth}, (_, i) => i + 1);
     const emptyDays = Array.from({length: firstDayOfMonth});
     const monthName = t.months[today.getMonth()];
@@ -629,10 +629,10 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
                                     disabled={isFuture}
                                     className={`aspect-square rounded-lg flex flex-col justify-center items-center transition-colors 
                                         ${isFuture ? 'bg-gray-100 text-gray-400' : 
+                                          isCompleted ? 'bg-green-500 text-white' :
                                           isSelected ? 'bg-yellow-400 text-white ring-2 ring-yellow-500' :
                                           isToday ? 'bg-blue-500 text-white ring-2 ring-blue-300' : 
-                                          'bg-gray-200 hover:bg-gray-300'} 
-                                        ${isCompleted ? 'bg-green-500 text-white' : ''}
+                                          'bg-gray-200 hover:bg-gray-300'}
                                         disabled:opacity-50 disabled:cursor-not-allowed
                                     `}>
                                 <span className="text-lg font-bold">{day}</span>
