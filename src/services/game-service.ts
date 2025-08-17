@@ -5,14 +5,18 @@ export type Difficulty = 'Easy' | 'Medium' | 'Hard' | 'Very Hard' | 'Impossible'
 export type GameMode = 'Solo' | 'Co-op' | 'Versus' | string; // string for daily challenges
 export type GameStatus = 'lobby' | 'active' | 'finished';
 
+// Firestore doesn't support nested arrays. We convert them to objects/maps.
+type BoardObject = { [row: number]: (number | null)[] };
+type SolutionObject = { [row: number]: number[] };
+
 export interface Game {
     gameId?: string;
-    puzzle: (number | null)[][];
-    solution: number[][];
+    puzzle: BoardObject;
+    solution: SolutionObject;
     difficulty: Difficulty;
     mode: GameMode;
     status: GameStatus;
-    board: (number | null)[][];
+    board: BoardObject;
     notes: any; // Serialized Set[][]
     errors: number;
     timer: number;
@@ -23,6 +27,21 @@ export interface Game {
     createdAt?: Date;
 }
 
+// --- Data Conversion Helpers ---
+const arrayToBoardObject = (arr: (number | null)[][]): BoardObject => {
+    const obj: BoardObject = {};
+    arr.forEach((row, i) => {
+        obj[i] = row;
+    });
+    return obj;
+};
+
+const boardObjectToArray = (obj: BoardObject): (number | null)[][] => {
+    if (!obj) return Array(9).fill(null).map(() => Array(9).fill(null));
+    return Object.keys(obj).sort((a,b) => Number(a)-Number(b)).map(key => obj[key]);
+};
+
+
 function generateGameId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
@@ -32,7 +51,7 @@ const serializeNotes = (notes) => {
     const serialized = {};
     for(let r=0; r<9; r++) {
         for(let c=0; c<9; c++) {
-            if (notes[r][c] && notes[r][c].size > 0) {
+            if (notes[r] && notes[r][c] && notes[r][c].size > 0) {
                 serialized[`${r}-${c}`] = Array.from(notes[r][c]);
             }
         }
@@ -56,11 +75,14 @@ const createGame = async (gameData: { puzzle: (number | null)[][], solution: num
     const gameId = generateGameId();
     const initialNotes = Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()));
 
-    const newGame: Game = {
-        ...gameData,
+    const newGameForStore: Game = {
+        difficulty: gameData.difficulty,
+        mode: gameData.mode,
+        puzzle: arrayToBoardObject(gameData.puzzle),
+        solution: arrayToBoardObject(gameData.solution),
         gameId,
         status: 'lobby',
-        board: gameData.puzzle.map(row => [...row]),
+        board: arrayToBoardObject(gameData.puzzle),
         notes: serializeNotes(initialNotes),
         errors: 0,
         timer: 0,
@@ -70,14 +92,20 @@ const createGame = async (gameData: { puzzle: (number | null)[][], solution: num
         createdAt: new Date(),
     };
 
-    await setDoc(doc(db, 'games', gameId), newGame);
+    await setDoc(doc(db, 'games', gameId), newGameForStore);
     return gameId;
 };
 
 const getGame = async (gameId: string): Promise<Game | null> => {
     const gameDoc = await getDoc(doc(db, 'games', gameId));
     if (gameDoc.exists()) {
-        return gameDoc.data() as Game;
+        const gameData = gameDoc.data() as Game;
+        return {
+            ...gameData,
+            puzzle: boardObjectToArray(gameData.puzzle),
+            solution: boardObjectToArray(gameData.solution),
+            board: boardObjectToArray(gameData.board),
+        };
     }
     return null;
 };
@@ -89,23 +117,43 @@ const joinGame = async (gameId: string): Promise<Game | null> => {
         await updateDoc(gameRef, {
             playerCount: increment(1)
         });
-        return gameDoc.data() as Game;
     }
-    // If game exists but is full, or doesn't exist
-    return gameDoc.exists() ? gameDoc.data() as Game : null;
+    
+    if (gameDoc.exists()) {
+        const gameData = gameDoc.data() as Game;
+        return {
+            ...gameData,
+            puzzle: boardObjectToArray(gameData.puzzle),
+            solution: boardObjectToArray(gameData.solution),
+            board: boardObjectToArray(gameData.board),
+        };
+    }
+    return null;
 };
 
 
-const updateGame = async (gameId: string, updates: Partial<Game>) => {
+const updateGame = async (gameId: string, updates: Partial<Omit<Game, 'puzzle' | 'solution' | 'board'> & { board?: (number|null)[][] }>) => {
     const gameRef = doc(db, 'games', gameId);
-    await updateDoc(gameRef, updates);
+    const updatesForStore: any = {...updates};
+
+    if (updates.board) {
+        updatesForStore.board = arrayToBoardObject(updates.board);
+    }
+
+    await updateDoc(gameRef, updatesForStore);
 };
 
 const onGameUpdate = (gameId: string, callback: (game: Game | null) => void) => {
     const gameRef = doc(db, 'games', gameId);
     return onSnapshot(gameRef, (doc) => {
         if (doc.exists()) {
-            callback(doc.data() as Game);
+            const gameData = doc.data() as Game;
+            callback({
+                ...gameData,
+                puzzle: boardObjectToArray(gameData.puzzle),
+                solution: boardObjectToArray(gameData.solution),
+                board: boardObjectToArray(gameData.board),
+            });
         } else {
             callback(null);
         }

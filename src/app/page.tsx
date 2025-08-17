@@ -223,7 +223,7 @@ const calculateInitialCounts = (board) => {
     }
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            if (board[r][c] !== null) {
+            if (board && board[r] && board[r][c] !== null) {
                 counts[board[r][c]]++;
             }
         }
@@ -330,9 +330,10 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     };
     
     const checkWinCondition = (currentBoard) => {
+        if (!currentBoard) return;
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
-                if (currentBoard[r][c] === null) {
+                if (!currentBoard[r] || currentBoard[r][c] === null) {
                     return;
                 }
             }
@@ -348,8 +349,10 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
 
     const handleCellClick = (row, col) => {
         setSelectedCell({ row, col });
-        const clickedNumber = board[row][col];
-        setHighlightedNumber(clickedNumber !== null ? clickedNumber : null);
+        if(board && board[row]){
+             const clickedNumber = board[row][col];
+             setHighlightedNumber(clickedNumber !== null ? clickedNumber : null);
+        }
     };
     
     const clearNotesForValue = (currentNotes, row, col, value) => {
@@ -366,7 +369,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const handleNumberInput = (num) => {
         if (!selectedCell || isGameWon) return;
         const { row, col } = selectedCell;
-        if (puzzle[row][col] !== null) return; 
+        if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return; 
 
         if (isNoteMode) {
             const newNotes = notes.map(r => r.map(c => new Set(c)));
@@ -379,7 +382,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = num;
             
-            if (solution[row][col] === num) {
+            if (solution && solution[row] && solution[row][col] === num) {
                 const newNotes = clearNotesForValue(notes, row, col, num);
                 setHighlightedNumber(num);
                 updateGame({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
@@ -394,7 +397,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const handleErase = () => {
         if (!selectedCell || isGameWon) return;
         const { row, col } = selectedCell;
-        if (puzzle[row][col] !== null) return;
+        if (!puzzle || !puzzle[row] || puzzle[row][col] !== null) return;
         
         const newBoard = board.map(r => [...r]);
         newBoard[row][col] = null;
@@ -409,7 +412,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const handleHint = () => {
         if (hints > 0 && !isGameWon) {
             const emptyCells = [];
-            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board[r][c] === null) emptyCells.push({r, c});
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board && board[r] && board[r][c] === null) emptyCells.push({r, c});
             if(emptyCells.length > 0) {
                 const {r, c} = emptyCells[Math.floor(Math.random() * emptyCells.length)];
                 const newBoard = board.map(b => [...b]);
@@ -474,7 +477,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
                                 const cIdx = (boxIdx % 3) * 3 + (cellIdx % 3);
                                 if (!board || !board[rIdx]) return null;
                                 const cell = board[rIdx][cIdx];
-                                const isGiven = puzzle[rIdx][cIdx] !== null;
+                                const isGiven = puzzle && puzzle[rIdx] && puzzle[rIdx][cIdx] !== null;
                                 const isSelected = selectedCell && selectedCell.row === rIdx && selectedCell.col === cIdx;
                                 const isInSelectedRowCol = !isSelected && selectedCell && (rIdx === selectedCell.row || cIdx === selectedCell.col);
                                 const isInSelectedBox = !isSelected && selectedCell && (Math.floor(rIdx / 3) === Math.floor(selectedCell.row / 3) && Math.floor(cIdx / 3) === Math.floor(selectedCell.col / 3));
@@ -519,6 +522,7 @@ const MultiplayerLobby = ({ gameId, onBack, t }) => {
     const [playerCount, setPlayerCount] = React.useState(1);
 
     React.useEffect(() => {
+        if (!gameId) return;
         const unsubscribe = gameService.onGameUpdate(gameId, (game) => {
             if (game) {
                 setPlayerCount(game.playerCount);
@@ -646,7 +650,7 @@ const Lobby = ({ onStartGame, onCreateMultiplayerGame, onJoinMultiplayerGame, on
 
 const DailyChallenges = ({ onStartDailyChallenge, t }) => {
     const [today, setToday] = React.useState(new Date());
-    const [selectedDay, setSelectedDay] = React.useState(today.getDate());
+    const [selectedDay, setSelectedDay] = React.useState(new Date().getDate());
 
     const firstDayOfMonth = (new Date(today.getFullYear(), today.getMonth(), 1).getDay() + 6) % 7;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
@@ -779,7 +783,7 @@ export default function App() {
         if (!gameData || !gameData.gameId || gameData.mode === 'Solo') return;
 
         const unsubscribe = gameService.onGameUpdate(gameData.gameId, (updatedGame) => {
-            if (updatedGame && updatedGame.status === 'active') {
+            if (updatedGame && updatedGame.status === 'active' && activeView !== 'game') {
                 setActiveView('game');
                 setGameData({
                     ...updatedGame,
@@ -789,12 +793,19 @@ export default function App() {
         });
 
         return () => unsubscribe();
-    }, [gameData?.gameId, gameData?.mode]);
+    }, [gameData?.gameId, gameData?.mode, activeView]);
 
 
     const handleSaveGame = (currentGameState) => {
         if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
-            localStorage.setItem('savedSudokuGame', JSON.stringify(currentGameState));
+            const { puzzle, solution, board, ...rest } = currentGameState;
+             const gameToSave = {
+                ...rest,
+                puzzle: Array.isArray(puzzle) ? puzzle : Object.values(puzzle),
+                solution: Array.isArray(solution) ? solution : Object.values(solution),
+                board: Array.isArray(board) ? board : Object.values(board),
+            };
+            localStorage.setItem('savedSudokuGame', JSON.stringify(gameToSave));
         }
     };
 
@@ -837,8 +848,8 @@ export default function App() {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
         try {
             const gameId = await gameService.createGame({ puzzle, solution, difficulty, mode });
-            setGameData({
-                gameId,
+            const initialGameData: Game = {
+                 gameId,
                 puzzle,
                 solution,
                 difficulty,
@@ -851,7 +862,8 @@ export default function App() {
                 hints: 3,
                 errorCells: [],
                 playerCount: 1,
-            });
+            };
+            setGameData(initialGameData);
             setActiveView('multiplayerLobby');
         } catch (error) {
             console.error("Error creating game:", error);
@@ -958,7 +970,7 @@ export default function App() {
             <main className="flex-grow overflow-y-auto relative">
                 {renderView()}
             </main>
-            {activeView !== 'multiplayerLobby' && (
+            {activeView !== 'game' && activeView !== 'multiplayerLobby' && (
                 <nav className="flex justify-around bg-white border-t border-gray-200 shadow-lg pb-safe">
                     <NavItem view="lobby" icon={<Home />} label={t.home} />
                     <NavItem view="daily" icon={<Calendar />} label={t.challenges} />
