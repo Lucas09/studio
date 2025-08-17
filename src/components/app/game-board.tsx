@@ -2,7 +2,6 @@
 "use client";
 import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, BrainCircuit, Repeat, Video } from 'lucide-react';
-import { gameService } from '@/services/game-service';
 
 const calculateInitialCounts = (board) => {
     const counts = {};
@@ -72,29 +71,17 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const [adMessage, setAdMessage] = React.useState('');
     const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(initialGameData.board));
 
-    const { board, notes, timer, errors, hints, errorCells, puzzle, solution, mode, gameId } = gameData;
+    const { board, notes, timer, errors, hints, errorCells, puzzle, solution, mode } = gameData;
 
     React.useEffect(() => {
-        if (mode === 'Solo') {
-            const interval = setInterval(() => {
-                const newTime = gameData.timer + 1;
-                const updatedGame = { ...gameData, timer: newTime };
-                setGameData(updatedGame);
-                onSave(updatedGame);
-            }, 1000);
-            return () => clearInterval(interval);
-        } else if (gameId) {
-            const unsubscribe = gameService.onGameUpdate(gameId, (updatedGame) => {
-                if(updatedGame){
-                    setGameData({
-                        ...updatedGame,
-                        notes: gameService.deserializeNotes(updatedGame.notes),
-                    });
-                }
-            });
-            return () => unsubscribe();
-        }
-    }, [gameId, mode, onSave]);
+        const interval = setInterval(() => {
+            const newTime = gameData.timer + 1;
+            const updatedGame = { ...gameData, timer: newTime };
+            setGameData(updatedGame);
+            onSave(updatedGame);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [gameData, onSave]);
 
     React.useEffect(() => {
         checkWinCondition(board);
@@ -110,9 +97,6 @@ const GameBoard = ({ initialGameData, onBack, onSave, t }) => {
     const updateGame = (updates) => {
         const updatedGame = { ...gameData, ...updates };
         setGameData(updatedGame);
-        if (mode !== 'Solo') {
-            gameService.updateGame(gameId, updatedGame);
-        }
     };
     
     const checkWinCondition = (currentBoard) => {

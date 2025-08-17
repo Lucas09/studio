@@ -10,7 +10,6 @@ import { translations } from '@/lib/translations';
 
 import Lobby from '@/components/app/lobby';
 import GameBoard from '@/components/app/game-board';
-import MultiplayerLobby from '@/components/app/multiplayer-lobby';
 import DailyChallenges from '@/components/app/daily-challenges';
 import Profile from '@/components/app/profile';
 
@@ -26,28 +25,6 @@ export default function App() {
     }, []);
     
     const t = translations[language];
-
-     React.useEffect(() => {
-        if (!gameData || !gameData.gameId || gameData.mode === 'Solo') return;
-
-        const unsubscribe = gameService.onGameUpdate(gameData.gameId, (updatedGame) => {
-            if (updatedGame && updatedGame.status === 'active' && activeView !== 'game') {
-                setActiveView('game');
-                setGameData({
-                    ...updatedGame,
-                    notes: gameService.deserializeNotes(updatedGame.notes)
-                });
-            } else if (updatedGame) {
-                setGameData({
-                    ...updatedGame,
-                    notes: gameService.deserializeNotes(updatedGame.notes)
-                });
-            }
-        });
-
-        return () => unsubscribe();
-    }, [gameData?.gameId, gameData?.mode, activeView]);
-
 
     const handleSaveGame = (currentGameState) => {
         if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
@@ -97,60 +74,6 @@ export default function App() {
         }
     };
     
-    const handleCreateMultiplayerGame = async ({difficulty, mode}: {difficulty: GameDifficulty, mode: GameMode}) => {
-        const { puzzle, solution } = sudokuGenerator.generate(difficulty);
-        try {
-            const gameId = await gameService.createGame({ puzzle, solution, difficulty, mode });
-            const initialGameData: Game = {
-                gameId,
-                puzzle,
-                solution,
-                difficulty,
-                mode,
-                status: 'lobby',
-                board: puzzle.map(row => [...row]),
-                notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
-                errors: 0,
-                timer: 0,
-                hints: 3,
-                errorCells: [],
-                playerCount: 1,
-            };
-            setGameData(initialGameData);
-            setActiveView('multiplayerLobby');
-        } catch (error) {
-            console.error("Error creating game:", error);
-            toast({ title: "Error", description: "Could not create game.", variant: "destructive" });
-        }
-    };
-
-    const handleJoinMultiplayerGame = async (gameId) => {
-        if (!gameId || gameId.length !== 6) {
-            toast({ title: t.invalidGameId, variant: "destructive" });
-            return;
-        }
-
-        try {
-            const game = await gameService.joinGame(gameId);
-            if (game) {
-                 setGameData({
-                    ...game,
-                    notes: gameService.deserializeNotes(game.notes),
-                });
-                if (game.status === 'active') {
-                    setActiveView('game');
-                } else {
-                    setActiveView('multiplayerLobby');
-                }
-            } else {
-                toast({ title: t.gameNotFound, variant: "destructive" });
-            }
-        } catch (error) {
-            console.error("Error joining game:", error);
-            toast({ title: t.gameNotFound, variant: "destructive" });
-        }
-    };
-    
     const handleStartDailyChallenge = (day) => {
         if (day) {
             startSoloGame({difficulty: 'Medium', mode: `Daily Challenge - Day ${day}`});
@@ -170,13 +93,6 @@ export default function App() {
         switch (activeView) {
             case 'game': 
                 return <GameBoard initialGameData={gameData} onBack={handleGameExit} onSave={handleSaveGame} t={t} />;
-            case 'multiplayerLobby':
-                return <MultiplayerLobby 
-                            gameId={gameData.gameId} 
-                            onBack={handleGameExit}
-                            playerCount={gameData.playerCount}
-                            t={t}
-                        />;
             case 'daily': 
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile': 
@@ -185,8 +101,6 @@ export default function App() {
             default: 
                 return <Lobby 
                             onStartGame={startSoloGame} 
-                            onCreateMultiplayerGame={handleCreateMultiplayerGame}
-                            onJoinMultiplayerGame={handleJoinMultiplayerGame}
                             onResumeGame={handleResumeGame}
                             t={t}
                         />;
@@ -224,7 +138,7 @@ export default function App() {
             <main className="flex-grow overflow-y-auto relative">
                 {renderView()}
             </main>
-            {activeView !== 'game' && activeView !== 'multiplayerLobby' && (
+            {activeView !== 'game' && (
                 <nav className="flex justify-around bg-white border-t border-gray-200 shadow-lg pb-safe">
                     <NavItem view="lobby" icon={<Home />} label={t.home} />
                     <NavItem view="daily" icon={<Calendar />} label={t.challenges} />
