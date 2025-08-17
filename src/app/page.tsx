@@ -37,12 +37,22 @@ export default function App() {
     const t = translations[language];
 
     const handleSaveGame = (currentGameState) => {
-        if (typeof window !== 'undefined' && currentGameState.mode === 'Solo') {
+        if (typeof window !== 'undefined' && (currentGameState.mode === 'Solo' || currentGameState.mode.startsWith('Daily'))) {
+            const playerState = currentGameState.players['solo'] || currentGameState.players[Object.keys(currentGameState.players)[0]];
+            if (!playerState) return;
+
             const gameToSave = {
                 ...currentGameState,
                  puzzle: sudokuGenerator.boardToString(currentGameState.puzzle),
                  solution: sudokuGenerator.boardToString(currentGameState.solution),
-                 notes: sudokuGenerator.notesToString(currentGameState.notes),
+                 // Save the single player's state
+                 board: sudokuGenerator.boardToString(playerState.board),
+                 notes: sudokuGenerator.notesToString(playerState.notes),
+                 errors: playerState.errors,
+                 timer: playerState.timer,
+                 hints: playerState.hints,
+                 errorCells: playerState.errorCells,
+                 players: {}, // Don't need to save the full player object again
             };
             localStorage.setItem('savedSudokuGame', JSON.stringify(gameToSave));
         }
@@ -60,7 +70,7 @@ export default function App() {
                 'solo': {
                     id: 'solo',
                     board: puzzle.map(row => [...row]), 
-                    notes: Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set())),
+                    notes: sudokuGenerator.createEmptyNotes(),
                     errors: 0, 
                     timer: 0,
                     hints: 3,
@@ -79,7 +89,8 @@ export default function App() {
             if (savedGameJSON) {
                 const savedGameData = JSON.parse(savedGameJSON);
                  const soloPlayer = {
-                     board: sudokuGenerator.stringToBoard(savedGameData.puzzle),
+                     id: 'solo',
+                     board: sudokuGenerator.stringToBoard(savedGameData.board),
                      notes: sudokuGenerator.stringToNotes(savedGameData.notes),
                      errors: savedGameData.errors || 0,
                      timer: savedGameData.timer || 0,
@@ -124,7 +135,7 @@ export default function App() {
             const joinedGame = await gameService.joinGame(gameId, playerId);
             if (joinedGame) {
                 setGameData(joinedGame);
-                setActiveView('game');
+                setActiveView('multiplayerLobby'); // Go to lobby first, then game view on update
             } else {
                 toast({
                     variant: "destructive",
@@ -162,7 +173,7 @@ export default function App() {
             case 'game': 
                 return <GameBoard initialGameData={gameData} onBack={handleGameExit} onSave={handleSaveGame} t={t} playerId={playerId || 'solo'} />;
             case 'multiplayerLobby':
-                return <MultiplayerLobby game={gameData} t={t} setActiveView={setActiveView} setGameData={setGameData} />;
+                return <MultiplayerLobby game={gameData} t={t} setActiveView={setActiveView} setGameData={setGameData} playerId={playerId} />;
             case 'daily': 
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile': 
@@ -180,7 +191,7 @@ export default function App() {
     };
 
     const NavItem = ({ view, icon, label }) => (
-        <button onClick={() => setActiveView(view)} className={`flex flex-col items-center justify-center w-full pt-3 pb-3 transition-colors ${activeView === view ? 'text-blue-500' : 'text-gray-400 hover:text-gray-800'}`}>
+        <button onClick={() => setActiveView(view)} className={`flex flex-col items-center justify-center w-full pt-3 pb-3 transition-colors ${activeView === view ? 'text-primary' : 'text-gray-400 hover:text-gray-800'}`}>
             {icon}
             <span className="text-xs mt-1 font-medium">{label}</span>
         </button>
@@ -188,9 +199,9 @@ export default function App() {
     
     if (!isClient) {
         return (
-            <div className="h-screen w-screen bg-gray-50 font-sans flex flex-col max-w-lg mx-auto shadow-2xl">
+            <div className="h-screen w-screen bg-background font-sans flex flex-col max-w-lg mx-auto shadow-2xl">
               <main className="flex-grow overflow-y-auto relative"></main>
-              <nav className="flex justify-around bg-white border-t border-gray-200 shadow-lg pb-safe">
+              <nav className="flex justify-around bg-card border-t border-border shadow-lg pb-safe">
                     <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
                         <Home /><span className="text-xs mt-1 font-medium">{t.home}</span>
                     </div>
@@ -206,12 +217,12 @@ export default function App() {
     }
 
     return (
-        <div className="h-screen w-screen bg-gray-50 font-sans flex flex-col max-w-lg mx-auto shadow-2xl">
+        <div className="h-screen w-screen bg-background font-sans flex flex-col max-w-lg mx-auto shadow-2xl">
             <main className="flex-grow overflow-y-auto relative">
                 {renderView()}
             </main>
             {activeView !== 'game' && activeView !== 'multiplayerLobby' && (
-                <nav className="flex justify-around bg-white border-t border-gray-200 shadow-lg pb-safe">
+                <nav className="flex justify-around bg-card border-t border-border shadow-lg pb-safe">
                     <NavItem view="lobby" icon={<Home />} label={t.home} />
                     <NavItem view="daily" icon={<Calendar />} label={t.challenges} />
                     <NavItem view="profile" icon={<User />} label={t.profile} />
@@ -220,3 +231,5 @@ export default function App() {
         </div>
     );
 }
+
+    

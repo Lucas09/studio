@@ -6,17 +6,19 @@ import { useToast } from "@/hooks/use-toast";
 import type { Game } from '@/services/game-service';
 import { gameService } from '@/services/game-service';
 
-const MultiplayerLobby = ({ game, t, setActiveView, setGameData }) => {
+const MultiplayerLobby = ({ game, t, setActiveView, setGameData, playerId }) => {
     const { toast } = useToast();
 
     // Listen for game updates
     React.useEffect(() => {
         if (game?.gameId) {
             const unsubscribe = gameService.getGameUpdates(game.gameId, (updatedGame) => {
-                setGameData(updatedGame);
-                // If game becomes active, switch to game board view
-                if (updatedGame.status === 'active' && Object.keys(updatedGame.players).length === 2) {
-                    setActiveView('game');
+                if (updatedGame) {
+                    setGameData(updatedGame);
+                    // If game becomes active, switch to game board view
+                    if (updatedGame.status === 'active' && Object.keys(updatedGame.players).length > 1) {
+                        setActiveView('game');
+                    }
                 }
             });
             return () => unsubscribe();
@@ -34,8 +36,9 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData }) => {
     };
 
     const handleStartGame = () => {
-        if(game?.gameId && Object.keys(game.players).length === 2) {
-            gameService.updateGame(game.gameId, Object.keys(game.players)[0], { status: 'active' });
+        if(game?.gameId && Object.keys(game.players).length > 1) {
+            // The creator of the game should be the one starting it.
+             gameService.startGame(game.gameId);
         }
     };
     
@@ -45,7 +48,9 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData }) => {
 
     const isCoop = game.mode === 'Co-op';
     const playerIds = Object.keys(game.players || {});
-    const hasTwoPlayers = playerIds.length === 2;
+    const hasTwoPlayers = playerIds.length > 1;
+    // The player who created the game is the first one in the playerIds array.
+    const isCreator = playerIds[0] === playerId;
 
     return (
         <div className="p-6 bg-gray-50 text-gray-800 flex flex-col h-full items-center justify-center">
@@ -75,14 +80,17 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData }) => {
 
                 <button 
                     onClick={handleStartGame} 
-                    disabled={!hasTwoPlayers}
+                    disabled={!hasTwoPlayers || !isCreator}
                     className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {t.startGame}
+                    {isCreator ? t.startGame : t.waitingForHost}
                 </button>
+                 {!isCreator && <p className="text-sm text-gray-500 mt-4">{t.waitingForHostDescription}</p>}
             </div>
         </div>
     );
 };
 
 export default MultiplayerLobby;
+
+    

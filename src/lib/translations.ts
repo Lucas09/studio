@@ -34,9 +34,12 @@ export const translations = {
         // Game Board
         errors: 'Fejl',
         hint: 'Hint',
+        aiHint: 'AI Hint',
+        aiHintTitle: 'AI-drevet Hint',
+        aiHintError: 'Kunne ikke hente hint. Prøv igen.',
         erase: 'Slet',
         notes: 'Noter',
-        gameOver: 'Game Over',
+        gameOver: 'Spillet er slut',
         gameOverMessage: 'Du har lavet 3 fejl.',
         tryAgain: 'Prøv Igen',
         watchAdForLife: 'Se Reklame for Ekstra Liv',
@@ -57,6 +60,8 @@ export const translations = {
         waitingForPlayer: 'Venter på at en anden spiller deltager...',
         playerJoined: 'Spiller 2 er deltager!',
         startGame: 'Start Spil',
+        waitingForHost: 'Venter på vært...',
+        waitingForHostDescription: 'Kun den person, der oprettede spillet, kan starte det.',
         
         // Daily Challenges
         dailyChallengesTitle: 'Daglige Udfordringer',
@@ -105,6 +110,9 @@ export const translations = {
         // Game Board
         errors: 'Errors',
         hint: 'Hint',
+        aiHint: 'AI Hint',
+        aiHintTitle: 'AI-Powered Hint',
+        aiHintError: 'Could not fetch hint. Please try again.',
         erase: 'Erase',
         notes: 'Notes',
         gameOver: 'Game Over',
@@ -128,6 +136,8 @@ export const translations = {
         waitingForPlayer: 'Waiting for another player to join...',
         playerJoined: 'Player 2 has joined!',
         startGame: 'Start Game',
+        waitingForHost: 'Waiting for host...',
+        waitingForHostDescription: 'Only the person who created the game can start it.',
 
         // Daily Challenges
         dailyChallengesTitle: 'Daily Challenges',
@@ -143,3 +153,5 @@ export const translations = {
         months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
     }
 };
+
+    

@@ -1,49 +1,56 @@
 
 import { db } from '@/lib/firebase';
 import { sudokuGenerator } from '@/lib/sudoku';
-import { collection, doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
+import { collection, doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp, addDoc, writeBatch } from "firebase/firestore";
 
 export type GameDifficulty = 'Easy' | 'Medium' | 'Hard' | 'Very Hard' | 'Impossible';
-export type GameMode = 'Solo' | 'Co-op' | 'Versus';
-export type GameStatus = 'waiting' | 'active' | 'finished';
+export type GameMode = 'Solo' | 'Co-op' | 'Versus' | string; // Allow string for daily challenges
+export type GameStatus = 'waiting' | 'active' | 'finished' | 'lost';
 
-// This interface represents the data structure for client-side logic
 export interface Player {
     id: string;
     board: (number | null)[][];
     notes: Set<number>[][];
     errors: number;
     timer: number;
-    errorCells?: { row: number, col: number }[];
-    hints?: number;
+    errorCells: { row: number, col: number }[];
+    hints: number;
 }
 
-// This interface represents the data structure in Firestore
-// Notice board and notes are simple strings
 export interface FirestorePlayer {
     id: string;
-    board: string;
-    notes: string;
     errors: number;
     timer: number;
-    errorCells?: { row: number, col: number }[];
-    hints?: number;
+    hints: number;
+    // board, notes, etc. are stored at the top level for co-op or individually for versus
 }
 
-// This interface represents the game structure in Firestore
 export interface FirestoreGame {
     gameId?: string;
-    puzzle: string; // Stored as a flat string
-    solution: string; // Stored as a flat string
+    puzzle: string;
+    solution: string;
     difficulty: GameDifficulty;
     mode: GameMode;
     status: GameStatus;
     players: { [key: string]: FirestorePlayer };
-    winner?: string;
-    createdAt?: any;
+    winner?: string | null;
+    createdAt: any;
+    // For Co-op mode, the board state is shared
+    coopState?: {
+        board: string;
+        notes: string;
+        errorCells: { row: number, col: number }[];
+    },
+    // For Versus mode, each player has their own board
+    versusState?: {
+        [playerId: string]: {
+            board: string;
+            notes: string;
+            errorCells: { row: number, col: number }[];
+        }
+    }
 }
 
-// This is the main Game interface used throughout the app client-side
 export interface Game {
     gameId?: string;
     puzzle: (number | null)[][];
@@ -52,66 +59,108 @@ export interface Game {
     mode: GameMode;
     status: GameStatus;
     players: { [key: string]: Player };
-    winner?: string;
+    winner?: string | null;
     createdAt?: any;
 }
 
-
-// Helper to convert a FirestoreGame to a client-side Game
-const fromFirestoreGame = (firestoreGame: FirestoreGame, id: string): Game => {
+const fromFirestoreGame = (firestoreGame: FirestoreGame, id: string): Game | null => {
+    if (!firestoreGame) return null;
+    
     const players: { [key: string]: Player } = {};
     if (firestoreGame.players) {
         for (const pId in firestoreGame.players) {
             const pData = firestoreGame.players[pId];
+            let playerBoard: (number|null)[][] = [];
+            let playerNotes: Set<number>[][] = [];
+            let playerErrorCells: {row: number, col: number}[] = [];
+
+            if (firestoreGame.mode === 'Co-op' && firestoreGame.coopState) {
+                playerBoard = sudokuGenerator.stringToBoard(firestoreGame.coopState.board);
+                playerNotes = sudokuGenerator.stringToNotes(firestoreGame.coopState.notes);
+                playerErrorCells = firestoreGame.coopState.errorCells;
+            } else if (firestoreGame.mode === 'Versus' && firestoreGame.versusState?.[pId]) {
+                 const vsState = firestoreGame.versusState[pId];
+                 playerBoard = sudokuGenerator.stringToBoard(vsState.board);
+                 playerNotes = sudokuGenerator.stringToNotes(vsState.notes);
+                 playerErrorCells = vsState.errorCells;
+            } else {
+                 playerBoard = sudokuGenerator.stringToBoard(firestoreGame.puzzle);
+                 playerNotes = sudokuGenerator.stringToNotes('');
+                 playerErrorCells = [];
+            }
+
             players[pId] = {
-                ...pData,
-                board: sudokuGenerator.stringToBoard(pData.board),
-                notes: sudokuGenerator.stringToNotes(pData.notes),
+                id: pData.id,
+                errors: pData.errors,
+                timer: pData.timer,
+                hints: pData.hints,
+                board: playerBoard,
+                notes: playerNotes,
+                errorCells: playerErrorCells
             };
         }
     }
 
     return {
-        ...firestoreGame,
         gameId: id,
         puzzle: sudokuGenerator.stringToBoard(firestoreGame.puzzle),
         solution: sudokuGenerator.stringToBoard(firestoreGame.solution),
+        difficulty: firestoreGame.difficulty,
+        mode: firestoreGame.mode,
+        status: firestoreGame.status,
+        winner: firestoreGame.winner,
+        createdAt: firestoreGame.createdAt,
         players,
     };
 };
 
+
 export const gameService = {
-    createGame: async (difficulty: GameDifficulty, mode: GameMode, playerId: string): Promise<Game> => {
+    createGame: async (difficulty: GameDifficulty, mode: GameMode, playerId: string): Promise<Game | null> => {
         const { puzzle, solution } = sudokuGenerator.generate(difficulty);
+        const puzzleString = sudokuGenerator.boardToString(puzzle);
         
-        const initialPlayerState: FirestorePlayer = {
+        const initialPlayer: FirestorePlayer = {
             id: playerId,
-            board: sudokuGenerator.boardToString(puzzle),
-            notes: sudokuGenerator.notesToString(Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))),
             errors: 0,
             timer: 0,
             hints: 3,
-            errorCells: []
         };
 
-        const newGameDataForFirestore: Omit<FirestoreGame, 'gameId'> = {
+        const newGameDataForFirestore: Omit<FirestoreGame, 'gameId' | 'createdAt'> = {
             difficulty,
             mode,
-            puzzle: sudokuGenerator.boardToString(puzzle),
+            puzzle: puzzleString,
             solution: sudokuGenerator.boardToString(solution),
-            status: 'waiting' as GameStatus,
-            players: {
-                [playerId]: initialPlayerState
-            },
-            createdAt: serverTimestamp(),
+            status: 'waiting',
+            players: { [playerId]: initialPlayer },
+            winner: null,
         };
 
+        if (mode === 'Co-op') {
+            newGameDataForFirestore.coopState = {
+                board: puzzleString,
+                notes: sudokuGenerator.notesToString(sudokuGenerator.createEmptyNotes()),
+                errorCells: []
+            }
+        } else if (mode === 'Versus') {
+            newGameDataForFirestore.versusState = {
+                [playerId]: {
+                    board: puzzleString,
+                    notes: sudokuGenerator.notesToString(sudokuGenerator.createEmptyNotes()),
+                    errorCells: []
+                }
+            }
+        }
+
         const gameCollection = collection(db, "games");
-        const gameRef = await addDoc(gameCollection, newGameDataForFirestore);
+        const gameRef = await addDoc(gameCollection, {
+            ...newGameDataForFirestore,
+            createdAt: serverTimestamp()
+        });
         
-        // Return the client-side game object by converting the firestore data
-        const createdGame = await getDoc(gameRef);
-        return fromFirestoreGame(createdGame.data() as FirestoreGame, gameRef.id);
+        const createdGameSnap = await getDoc(gameRef);
+        return fromFirestoreGame(createdGameSnap.data() as FirestoreGame, gameRef.id);
     },
 
     joinGame: async (gameId: string, playerId: string): Promise<Game | null> => {
@@ -124,67 +173,95 @@ export const gameService = {
         }
 
         const firestoreGame = gameSnap.data() as FirestoreGame;
+        if (Object.keys(firestoreGame.players).length >= 2) {
+             console.error("Game is full!");
+             return fromFirestoreGame(firestoreGame, gameId); // Still return the game data
+        }
         
         const newPlayer: FirestorePlayer = {
             id: playerId,
-            board: firestoreGame.puzzle,
-            notes: sudokuGenerator.notesToString(Array(9).fill(0).map(() => Array(9).fill(0).map(() => new Set()))),
             errors: 0,
             timer: 0,
             hints: 3,
-            errorCells: []
+        };
+        
+        const updates = {
+            [`players.${playerId}`]: newPlayer
         };
 
-        await updateDoc(gameRef, {
-            [`players.${playerId}`]: newPlayer,
-            status: 'active'
-        });
+        if (firestoreGame.mode === 'Versus') {
+             updates[`versusState.${playerId}`] = {
+                board: firestoreGame.puzzle,
+                notes: sudokuGenerator.notesToString(sudokuGenerator.createEmptyNotes()),
+                errorCells: []
+            }
+        }
+
+        await updateDoc(gameRef, updates);
         
         const updatedGameSnap = await getDoc(gameRef);
         return fromFirestoreGame(updatedGameSnap.data() as FirestoreGame, updatedGameSnap.id);
     },
 
-    getGameUpdates: (gameId: string, callback: (game: Game) => void) => {
+    getGameUpdates: (gameId: string, callback: (game: Game | null) => void) => {
         const gameRef = doc(db, 'games', gameId);
         return onSnapshot(gameRef, (docSnap) => {
             if (docSnap.exists()) {
-                const firestoreGame = docSnap.data() as FirestoreGame;
-                callback(fromFirestoreGame(firestoreGame, docSnap.id));
+                callback(fromFirestoreGame(docSnap.data() as FirestoreGame, docSnap.id));
             } else {
                 console.error("Game not found during update");
+                callback(null);
             }
         });
     },
 
     updateGame: async (gameId: string, playerId: string, updates: Partial<Player>) => {
         const gameRef = doc(db, 'games', gameId);
+        const gameSnap = await getDoc(gameRef);
+        if (!gameSnap.exists()) return;
+
+        const firestoreGame = gameSnap.data() as FirestoreGame;
         const updateData = {};
         
-        for(const key in updates) {
+        for(const key of Object.keys(updates)) {
             let value = updates[key];
-            if (key === 'board' && Array.isArray(value)) {
-                 value = sudokuGenerator.boardToString(value as (number|null)[][]);
+            
+            // Player-specific updates like timer, errors, hints
+            if (key === 'timer' || key === 'errors' || key === 'hints') {
+                 updateData[`players.${playerId}.${key}`] = value;
             }
-            if (key === 'notes') {
-                value = sudokuGenerator.notesToString(value);
+            
+            // Board state updates depend on game mode
+            if (key === 'board' || key === 'notes' || key === 'errorCells') {
+                const modePrefix = firestoreGame.mode === 'Co-op' ? 'coopState' : `versusState.${playerId}`;
+                let serializedValue = value;
+                if(key === 'board' && Array.isArray(value)) {
+                    serializedValue = sudokuGenerator.boardToString(value);
+                }
+                if(key === 'notes') {
+                     serializedValue = sudokuGenerator.notesToString(value);
+                }
+                 updateData[`${modePrefix}.${key}`] = serializedValue;
             }
-            updateData[`players.${playerId}.${key}`] = value;
         }
 
         if(Object.keys(updateData).length > 0) {
             await updateDoc(gameRef, updateData);
         }
     },
+    
+    startGame: async (gameId: string) => {
+        const gameRef = doc(db, 'games', gameId);
+        await updateDoc(gameRef, { status: 'active' });
+    },
 
-    setWinner: async (gameId: string, playerId: string) => {
+    endGame: async (gameId: string, status: 'win' | 'lost', winnerId?: string) => {
         const gameRef = doc(db, 'games', gameId);
         await updateDoc(gameRef, {
-            winner: playerId,
-            status: 'finished'
+            status: 'finished',
+            winner: winnerId || null,
         });
     },
-    
-    // We only export what the client components need
-    serializeNotes: (notes: Set<number>[][]) => sudokuGenerator.notesToString(notes),
-    deserializeNotes: (notesString: string) => sudokuGenerator.stringToNotes(notesString),
 };
+
+    
