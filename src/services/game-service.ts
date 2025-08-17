@@ -1,3 +1,4 @@
+
 import { db } from '@/lib/firebase';
 import { sudokuGenerator } from '@/lib/sudoku';
 import { collection, doc, getDoc, onSnapshot, setDoc, updateDoc, serverTimestamp, addDoc } from "firebase/firestore";
@@ -175,5 +176,6 @@ export const gameService = {
         });
     },
     
+    serializeNotes,
     deserializeNotes,
 };
