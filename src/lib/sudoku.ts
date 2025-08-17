@@ -123,16 +123,16 @@ export const sudokuGenerator = {
             return sudokuGenerator.createEmptyNotes();
         }
         try {
-            const parsedArray = JSON.parse(notesString);
+            // The notes string from localStorage is already a JSON string of arrays
+            const parsedArray = typeof notesString === 'string' ? JSON.parse(notesString) : notesString;
             if (!Array.isArray(parsedArray)) return sudokuGenerator.createEmptyNotes();
              // Convert each array back to a Set
             return parsedArray.map(row => 
                 (Array.isArray(row) ? row : []).map(cellArray => new Set(Array.isArray(cellArray) ? cellArray : []))
             );
         } catch (e) {
+            console.error("Failed to parse notes string:", e);
             return sudokuGenerator.createEmptyNotes();
         }
     }
 };
-
-    

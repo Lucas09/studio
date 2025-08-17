@@ -35,7 +35,7 @@ const App = () => {
     }, []);
 
     React.useEffect(() => {
-        if (gameData?.status === 'active' && view !== 'game') {
+        if (gameData?.status === 'active' && view !== 'game' && gameData.gameId) {
           setView('game');
         }
     }, [gameData, view]);
@@ -66,7 +66,7 @@ const App = () => {
         setGameData(newGame);
         setView('game');
         if (options.mode === 'Solo') {
-            localStorage.setItem('savedSudokuGame', JSON.stringify(newGame));
+            handleSaveGame(newGame);
         }
     };
     
@@ -98,10 +98,9 @@ const App = () => {
         const savedGameString = localStorage.getItem('savedSudokuGame');
         if (savedGameString) {
             const savedGame = JSON.parse(savedGameString);
-            // Notes are not serializable as Sets, so we need to convert them back
             Object.values(savedGame.players).forEach((player: any) => {
                 if(player.notes) {
-                    player.notes = sudokuGenerator.stringToNotes(JSON.stringify(player.notes));
+                    player.notes = sudokuGenerator.stringToNotes(player.notes);
                 }
             });
             setGameData(savedGame);
@@ -109,22 +108,26 @@ const App = () => {
         }
     };
 
-    const handleSaveGame = (currentGameData: Game) => {
-        if (currentGameData.mode === 'Solo') {
-            // Need to convert notes Set to Array for JSON serialization
-            const savableGameData = JSON.parse(JSON.stringify(currentGameData, (key, value) => {
-                if (value instanceof Set) {
-                    return Array.from(value);
-                }
-                return value;
-            }));
+    const handleSaveGame = (currentGameData: Game | null) => {
+        if (currentGameData && currentGameData.mode === 'Solo') {
+            const savableGameData = {
+                ...currentGameData,
+                players: Object.fromEntries(
+                    Object.entries(currentGameData.players).map(([pid, pdata]) => [
+                        pid,
+                        {
+                            ...pdata,
+                            notes: sudokuGenerator.notesToString(pdata.notes),
+                        },
+                    ])
+                ),
+            };
             localStorage.setItem('savedSudokuGame', JSON.stringify(savableGameData));
         }
     };
     
     const handleBackToLobby = () => {
-        const isSoloGame = gameData?.mode === 'Solo';
-        if (isSoloGame && gameData) {
+        if (gameData?.mode === 'Solo') {
             handleSaveGame(gameData);
         }
         setGameData(null);

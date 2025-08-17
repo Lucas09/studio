@@ -103,6 +103,13 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }
     }, [gameData, playerId]);
     
+    // Save game state for solo games whenever it changes
+    React.useEffect(() => {
+        if (gameData.mode === 'Solo') {
+            onSave(gameData);
+        }
+    }, [gameData, onSave]);
+
     // Timer logic
     React.useEffect(() => {
         if (gameData.status !== 'active' || isGameWon || isGameOver || !playerState) return;
@@ -117,12 +124,11 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
                  const updatedPlayerState = { ...playerState, ...updates };
                  const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: updatedPlayerState }};
                  setGameData(updatedGame as Game);
-                 onSave(updatedGame);
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [gameData.status, playerState, onSave, isMultiplayer, gameData.gameId, playerId, isGameWon, isGameOver, setGameData]);
+    }, [gameData.status, playerState, isMultiplayer, gameData.gameId, playerId, isGameWon, isGameOver, setGameData]);
 
     React.useEffect(() => {
         if (board) {
@@ -394,5 +400,3 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 };
 
 export default GameBoard;
-
-    
