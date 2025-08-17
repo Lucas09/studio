@@ -1,7 +1,9 @@
 
+
 "use client";
 import React from 'react';
 import { Home, Calendar, User, ArrowLeft, Star, Trophy, BrainCircuit, Users, Swords, HelpCircle, Lightbulb, History, Video, Repeat, Eraser, Copy, Check, Settings } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast"
 
 // --- TRANSLATIONS ---
 const translations = {
@@ -670,6 +672,14 @@ const Profile = ({ t, language, setLanguage }) => {
         'impossible': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
     };
 
+    const difficulties = {
+        'easy': 'easy',
+        'medium': 'medium',
+        'hard': 'hard',
+        'veryhard': 'veryhard',
+        'impossible': 'impossible'
+    };
+
     return (
         <div className="p-6 bg-gray-50 text-gray-800 flex flex-col h-full">
             <div className="flex flex-col items-center mb-8">
@@ -682,7 +692,7 @@ const Profile = ({ t, language, setLanguage }) => {
                 <div className="space-y-3">
                     {Object.entries(stats).map(([difficulty, data]) => (
                         <div key={difficulty} className="bg-gray-100 p-4 rounded-lg">
-                            <h3 className="font-bold text-blue-600">{t[difficulty]}</h3>
+                            <h3 className="font-bold text-blue-600">{t[difficulties[difficulty]]}</h3>
                             <div className="flex justify-between items-center text-sm mt-2 text-gray-600 flex-wrap gap-2">
                                 <span>{t.solved}: <span className="font-semibold text-gray-800">{data.solved}</span></span>
                                 <span>{t.bestTime}: <span className="font-semibold text-gray-800">{data.bestTime}</span></span>
@@ -713,6 +723,7 @@ export default function App() {
     const [gameData, setGameData] = React.useState(null);
     const [multiplayerInfo, setMultiplayerInfo] = React.useState(null);
     const [isClient, setIsClient] = React.useState(false);
+    const { toast } = useToast();
 
     React.useEffect(() => {
         setIsClient(true);
@@ -760,9 +771,11 @@ export default function App() {
             const mode = 'Sammen';
             startGame(difficulty, mode, gameId);
         } else {
-             if (typeof window !== 'undefined') {
-                alert(t.invalidGameId);
-             }
+            toast({
+                title: "Invalid Game ID",
+                description: t.invalidGameId,
+                variant: "destructive",
+            })
         }
     };
     
@@ -850,3 +863,5 @@ export default function App() {
         </div>
     );
 }
+
+    
