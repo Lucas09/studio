@@ -331,9 +331,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
             if (gameData.solution[row][col] === num) {
                 setErrorCells(newErrorCells);
                 clearNotesForValue(row, col, num);
-                const newCounts = { ...numberCounts };
-                newCounts[num]++;
-                setNumberCounts(newCounts);
+                setNumberCounts(prev => ({ ...prev, [num]: (prev[num] || 0) + 1 }));
                 setHighlightedNumber(num);
                 checkWinCondition(newBoard);
             } else {
@@ -375,9 +373,7 @@ const GameBoard = ({ gameData, onBack, onSave, t }) => {
                 newBoard[r][c] = hintNum;
                 setBoard(newBoard);
                 setHints(h => h - 1);
-                const newCounts = { ...numberCounts };
-                newCounts[hintNum]++;
-                setNumberCounts(newCounts);
+                setNumberCounts(prev => ({ ...prev, [hintNum]: (prev[hintNum] || 0) + 1 }));
                 clearNotesForValue(r, c, hintNum);
                 setErrorCells(errorCells.filter(cell => !(cell.row === r && cell.col === c)));
                 checkWinCondition(newBoard);
@@ -480,7 +476,7 @@ const MultiplayerLobby = ({ gameId, onStart, onBack, t }) => {
     const [copied, setCopied] = React.useState(false);
 
     const copyToClipboard = () => {
-        if (typeof window !== 'undefined' && navigator.clipboard) {
+         if (typeof window !== 'undefined' && navigator.clipboard) {
             navigator.clipboard.writeText(gameId).then(() => {
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
@@ -667,21 +663,12 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
 
 const Profile = ({ t, language, setLanguage }) => {
     const stats = {
-        'Let': { solved: 12, bestTime: '03:45', avgTime: '05:12' },
-        'Medium': { solved: 8, bestTime: '07:11', avgTime: '09:34' },
-        'Svær': { solved: 3, bestTime: '15:23', avgTime: '18:01' },
-        'Meget svær': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
-        'Umulig': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
+        'easy': { solved: 12, bestTime: '03:45', avgTime: '05:12' },
+        'medium': { solved: 8, bestTime: '07:11', avgTime: '09:34' },
+        'hard': { solved: 3, bestTime: '15:23', avgTime: '18:01' },
+        'veryhard': { solved: 1, bestTime: '25:40', avgTime: '25:40' },
+        'impossible': { solved: 0, bestTime: 'N/A', avgTime: 'N/A' },
     };
-    
-    const difficultyKeys = {
-        'Let': 'easy',
-        'Medium': 'medium',
-        'Svær': 'hard',
-        'Meget svær': 'veryhard',
-        'Umulig': 'impossible'
-    };
-
 
     return (
         <div className="p-6 bg-gray-50 text-gray-800 flex flex-col h-full">
@@ -695,7 +682,7 @@ const Profile = ({ t, language, setLanguage }) => {
                 <div className="space-y-3">
                     {Object.entries(stats).map(([difficulty, data]) => (
                         <div key={difficulty} className="bg-gray-100 p-4 rounded-lg">
-                            <h3 className="font-bold text-blue-600">{t[difficultyKeys[difficulty]] || difficulty}</h3>
+                            <h3 className="font-bold text-blue-600">{t[difficulty]}</h3>
                             <div className="flex justify-between items-center text-sm mt-2 text-gray-600 flex-wrap gap-2">
                                 <span>{t.solved}: <span className="font-semibold text-gray-800">{data.solved}</span></span>
                                 <span>{t.bestTime}: <span className="font-semibold text-gray-800">{data.bestTime}</span></span>
