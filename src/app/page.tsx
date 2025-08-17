@@ -1,7 +1,7 @@
 
 "use client";
 import React from 'react';
-import { Home, Calendar, User, Copy, Download } from 'lucide-react';
+import { Home, Calendar, User, Copy } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import type { Game } from '@/services/game-service';
 import { gameService } from '@/services/game-service';
@@ -14,7 +14,6 @@ import DailyChallenges from '@/components/app/daily-challenges';
 import Profile from '@/components/app/profile';
 import { v4 as uuidv4 } from 'uuid';
 import MultiplayerLobby from '@/components/app/multiplayer-lobby';
-import DownloadPage from '@/components/app/download-page';
 
 
 export default function App() {
@@ -168,8 +167,6 @@ export default function App() {
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile': 
                 return <Profile t={t} language={language} setLanguage={setLanguage} />;
-            case 'download':
-                return <DownloadPage />;
             case 'lobby': 
             default: 
                 return <Lobby 
@@ -203,9 +200,6 @@ export default function App() {
                     <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
                         <User /><span className="text-xs mt-1 font-medium">{t.profile}</span>
                     </div>
-                    <div className="flex flex-col items-center justify-center w-full pt-3 pb-3 text-gray-400">
-                        <Download /><span className="text-xs mt-1 font-medium">Download</span>
-                    </div>
               </nav>
             </div>
         );
@@ -221,7 +215,6 @@ export default function App() {
                     <NavItem view="lobby" icon={<Home />} label={t.home} />
                     <NavItem view="daily" icon={<Calendar />} label={t.challenges} />
                     <NavItem view="profile" icon={<User />} label={t.profile} />
-                    <NavItem view="download" icon={<Download />} label="Download" />
                 </nav>
             )}
         </div>
