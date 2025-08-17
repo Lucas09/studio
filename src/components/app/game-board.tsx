@@ -290,7 +290,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <button onClick={onBack} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><ArrowLeft /></button>
-                    <div className="text-lg font-semibold">{translatedDifficulty} ({gameData.mode})</div>
+                    <div className="text-lg font-semibold">{translatedDifficulty} {gameData.mode !== 'Solo' && !gameData.mode.startsWith('Daily') && `(${gameData.mode})`}</div>
                     <div className="flex items-center space-x-4">
                         <div className="text-red-500 font-bold text-lg">{t.errors}: {errors}/3</div>
                         <div className="font-mono text-lg">{formatTime(timer)}</div>
