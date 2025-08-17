@@ -686,8 +686,8 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
                                     onClick={() => handleDayClick(day)}
                                     disabled={isFuture}
                                     className={`aspect-square rounded-lg flex flex-col justify-center items-center transition-colors 
-                                        ${isFuture ? 'bg-gray-100 text-gray-400' : 
-                                          isCompleted ? 'bg-green-500 text-white' :
+                                        ${isCompleted ? 'bg-green-500 text-white' :
+                                          isFuture ? 'bg-gray-100 text-gray-400' : 
                                           isSelected ? 'bg-yellow-400 text-white ring-2 ring-yellow-500' :
                                           isToday ? 'bg-blue-500 text-white ring-2 ring-blue-300' : 
                                           'bg-gray-200 hover:bg-gray-300'}
@@ -849,7 +849,7 @@ export default function App() {
         try {
             const gameId = await gameService.createGame({ puzzle, solution, difficulty, mode });
             const initialGameData: Game = {
-                 gameId,
+                gameId,
                 puzzle,
                 solution,
                 difficulty,
@@ -980,3 +980,5 @@ export default function App() {
         </div>
     );
 }
+
+    
