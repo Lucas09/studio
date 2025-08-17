@@ -640,16 +640,15 @@ const DailyChallenges = ({ onStartDailyChallenge, t }) => {
                             </button>)
                     })}
                 </div>
-                 {selectedDay && (
-                    <div className="mt-auto pt-4">
-                        <button 
-                            onClick={() => onStartDailyChallenge(selectedDay)} 
-                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105"
-                        >
-                            {t.startChallenge}
-                        </button>
-                    </div>
-                )}
+                <div className="mt-auto pt-4">
+                    <button 
+                        onClick={() => onStartDailyChallenge(selectedDay)} 
+                        disabled={!selectedDay}
+                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {t.startChallenge}
+                    </button>
+                </div>
             </div>
         </div>
     );
