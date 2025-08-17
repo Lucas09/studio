@@ -34,9 +34,6 @@ export const translations = {
         // Game Board
         errors: 'Fejl',
         hint: 'Hint',
-        aiHint: 'AI Hint',
-        aiHintTitle: 'AI-drevet Hint',
-        aiHintError: 'Kunne ikke hente hint. Prøv igen.',
         erase: 'Slet',
         notes: 'Noter',
         gameOver: 'Spillet er slut',
@@ -110,9 +107,6 @@ export const translations = {
         // Game Board
         errors: 'Errors',
         hint: 'Hint',
-        aiHint: 'AI Hint',
-        aiHintTitle: 'AI-Powered Hint',
-        aiHintError: 'Could not fetch hint. Please try again.',
         erase: 'Erase',
         notes: 'Notes',
         gameOver: 'Game Over',

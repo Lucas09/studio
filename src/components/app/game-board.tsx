@@ -1,11 +1,9 @@
 
 "use client";
 import React from 'react';
-import { ArrowLeft, Lightbulb, Eraser, BrainCircuit, Repeat, Video } from 'lucide-react';
+import { ArrowLeft, Lightbulb, Eraser, Repeat, Video } from 'lucide-react';
 import type { Game, Player } from '@/lib/game-state';
 import { updateGame, endGame } from '@/services/game-service';
-import { getAdaptiveHint } from '@/ai/flows/adaptive-hints';
-import type { AdaptiveHintResponse } from '@/ai/schema/adaptive-hints';
 import { sudokuGenerator } from '@/lib/sudoku';
 import { useGameUpdates } from '@/hooks/use-game-updates';
 
@@ -76,8 +74,6 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
     const [isGameWon, setIsGameWon] = React.useState(false);
     const [isAdPlaying, setIsAdPlaying] = React.useState(false);
     const [adMessage, setAdMessage] = React.useState('');
-    const [isAiHintLoading, setIsAiHintLoading] = React.useState(false);
-    const [aiHint, setAiHint] = React.useState<AdaptiveHintResponse | null>(null);
 
     
     const isMultiplayer = gameData.mode !== 'Solo' && !gameData.mode.startsWith('Daily');
@@ -283,27 +279,6 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
         }
     };
 
-     const handleAiHint = async () => {
-        if (!board) return;
-        setIsAiHintLoading(true);
-        setAiHint(null);
-        try {
-            const progress = (Object.values(numberCounts).reduce((a, b) => a + b, 0) - (81 - sudokuGenerator.getEmptyCells(puzzle))) / sudokuGenerator.getEmptyCells(puzzle);
-
-            const hint = await getAdaptiveHint({
-                puzzle: sudokuGenerator.boardToString(board),
-                difficulty: gameData.difficulty,
-                skillLevel: 5, // This could be dynamic in the future
-                progress: Math.max(0, Math.min(1, progress)),
-            });
-            setAiHint(hint);
-        } catch (error) {
-            console.error("Error getting AI hint:", error);
-            setAiHint({ hint: t.aiHintError, reasoning: "" });
-        }
-        setIsAiHintLoading(false);
-    };
-
     
     const handleAdConfirm = (type) => {
         setIsAdPlaying(false);
@@ -355,16 +330,6 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
             {gameLost && !gameData.winner && <Modal title={t.gameOver} titleColor="text-red-500" onCancel={onBack} cancelText={<><Repeat className="mr-2 h-5 w-5" /> {t.tryAgain}</>} onConfirm={() => { setIsGameOver(false); setAdMessage(t.adForLife); setIsAdPlaying(true); }} confirmText={<><Video className="mr-2 h-5 w-5" /> {t.watchAdForLife}</>}><p>{t.gameOverMessage}</p></Modal>}
             {isAdPlaying && <Modal title={t.opportunity} titleColor="text-yellow-500" onCancel={() => setIsAdPlaying(false)} cancelText={t.no} onConfirm={() => handleAdConfirm(adMessage.includes('hint') ? 'hint' : 'life')} confirmText={t.yes}><p>{adMessage}</p></Modal>}
             
-            {(aiHint || isAiHintLoading) && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4" onClick={() => setAiHint(null)}>
-                    <div className="bg-white p-6 rounded-2xl shadow-lg text-center w-full max-w-sm text-gray-800 relative" onClick={(e) => e.stopPropagation()}>
-                         <button onClick={() => setAiHint(null)} className="absolute top-2 right-2 p-1 bg-gray-200 rounded-full">&times;</button>
-                        <h2 className="text-2xl font-bold mb-4 text-blue-600">{t.aiHintTitle}</h2>
-                        {isAiHintLoading ? <div className="animate-pulse">Loading...</div> : <p className="text-gray-700">{aiHint?.hint}</p>}
-                    </div>
-                </div>
-            )}
-
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <button onClick={onBack} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><ArrowLeft /></button>
@@ -416,8 +381,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 
             <div className="mt-4">
                 <div className="flex justify-center items-center space-x-2 mb-4">
-                    <button onClick={handleHint} className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 flex-1" disabled={hints === 0}><Lightbulb className="text-yellow-500"/><span className="text-xs font-semibold mt-1">{t.hint} ({hints})</span></button>
-                    <button onClick={handleAiHint} className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-gray-200 hover:bg-gray-300 flex-1"><BrainCircuit className="text-purple-500" /><span className="text-xs font-semibold mt-1">{t.aiHint}</span></button>
+                    <button onClick={handleHint} className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-gray-200 hover:bg-gray-300 disabled:opacity-50 flex-1"><Lightbulb className="text-yellow-500"/><span className="text-xs font-semibold mt-1">{t.hint} ({hints})</span></button>
                     <button onClick={handleErase} className="flex flex-col items-center justify-center text-center p-2 rounded-lg bg-gray-200 hover:bg-gray-300 flex-1"><Eraser /><span className="text-xs font-semibold mt-1">{t.erase}</span></button>
                     <button onClick={() => setIsNoteMode(!isNoteMode)} className={`flex flex-col items-center justify-center text-center p-2 rounded-lg transition-colors flex-1 ${isNoteMode ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 13.5V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2h-5.5"/><polyline points="14 2 14 8 20 8"/><path d="M3 17.5a2.5 2.5 0 0 1 5 0"/><path d="M3 20h5"/></svg><span className="text-xs font-semibold mt-1">{t.notes}</span></button>
                 </div>
@@ -430,3 +394,5 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId }) => {
 };
 
 export default GameBoard;
+
+    
