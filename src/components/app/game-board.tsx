@@ -68,10 +68,14 @@ const Confetti = () => {
 const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameDataProp }) => {
     const isMultiplayer = !!initialGameData.gameId;
     
-    // For multiplayer, useGameUpdates will keep the data fresh.
-    // For solo, we manage state internally.
     const { gameData: liveGameData } = useGameUpdates(initialGameData.gameId);
-    const [soloGameData, setSoloGameData] = React.useState<Game | null>(null);
+    const [soloGameData, setSoloGameData] = React.useState<Game | null>(() => {
+        if (!isMultiplayer && initialGameData?.players?.[playerId]) {
+            // This is a resumed solo game
+            return initialGameData as Game;
+        }
+        return null;
+    });
 
     const gameData = isMultiplayer ? liveGameData : soloGameData;
     const setGameData = isMultiplayer ? setGameDataProp : setSoloGameData;
@@ -85,10 +89,9 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
     const [isAdPlaying, setIsAdPlaying] = React.useState(false);
     const [adMessage, setAdMessage] = React.useState('');
     
-    // Initialize game state
+    // Initialize game state for a NEW solo game
     React.useEffect(() => {
         if (!isMultiplayer && !soloGameData) {
-            // This is a new solo game
             const { puzzle, solution } = sudokuGenerator.generate(initialGameData.difficulty as GameDifficulty);
             const newGame: Game = {
                 difficulty: initialGameData.difficulty as GameDifficulty,
@@ -108,25 +111,12 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
                     }
                 }
             };
-             // If it is a resumed game, overwrite with saved data
-            if(initialGameData.players) {
-                const pState = initialGameData.players[playerId];
-                if (pState) {
-                    newGame.players[playerId].board = sudokuGenerator.stringToBoard(pState.board as any);
-                    newGame.players[playerId].notes = sudokuGenerator.stringToNotes(pState.notes as any);
-                    newGame.players[playerId].timer = pState.timer;
-                    newGame.players[playerId].errors = pState.errors;
-                    newGame.players[playerId].hints = pState.hints;
-                    newGame.players[playerId].errorCells = pState.errorCells;
-                }
-            }
-
             setSoloGameData(newGame);
         }
     }, [initialGameData, isMultiplayer, playerId, soloGameData]);
     
     const handleSaveGame = (currentGameData: Game | null) => {
-        if (currentGameData && currentGameData.mode !== 'Co-op' && currentGameData.mode !== 'Versus' && playerId && currentGameData.players[playerId]) {
+        if (currentGameData && !isMultiplayer && playerId && currentGameData.players[playerId]) {
             const playerState = currentGameData.players[playerId];
             const savableGameData = {
                 ...currentGameData,
@@ -463,3 +453,5 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
 };
 
 export default GameBoard;
+
+    
