@@ -1,201 +1,246 @@
 
 "use client";
-import React from 'react';
+import React, { useState } from "react";
+import { usePlayerId } from "@/hooks/use-player-id";
+import Lobby from "@/components/app/lobby";
+import MultiplayerLobby from "@/components/app/multiplayer-lobby";
+import GameBoard from "@/components/app/game-board";
+import type { Game } from "@/lib/game-state";
+import DailyChallenges from "@/components/app/daily-challenges";
+import Profile from "@/components/app/profile";
 import { Home, Trophy, UserCircle } from 'lucide-react';
-import Lobby from '@/components/app/lobby';
-import GameBoard from '@/components/app/game-board';
-import DailyChallenges from '@/components/app/daily-challenges';
-import Profile from '@/components/app/profile';
-import MultiplayerLobby from '@/components/app/multiplayer-lobby';
-import { translations } from '@/lib/translations';
-import { sudokuGenerator } from '@/lib/sudoku';
-import type { Game, GameDifficulty, GameMode } from '@/lib/game-state';
-import { v4 as uuidv4 } from 'uuid';
-import { useToast } from "@/hooks/use-toast";
-import { useGameUpdates } from '@/hooks/use-game-updates';
 
-type View = 'lobby' | 'game' | 'daily' | 'profile' | 'multiplayer-lobby';
+export default function App() {
+  const playerId = usePlayerId();       // 🔑 Genererer/gemmer unik spiller-ID
+  const [activeView, setActiveView] = useState("lobby");
+  const [gameData, setGameData] = useState<Partial<Game> | null>(null);
+  const [language, setLanguage] = React.useState<'da' | 'en'>('da');
 
-const App = () => {
-    const [view, setView] = React.useState<View>('lobby');
-    const [gameId, setGameId] = React.useState<string | null>(null);
-    const [soloGameData, setSoloGameData] = React.useState<Game | null>(null);
-    const { gameData: multiplayerGameData, setGameData: setMultiplayerGameData } = useGameUpdates(gameId);
-    const [language, setLanguage] = React.useState<'da' | 'en'>('da');
-    const [playerId, setPlayerId] = React.useState('');
-    const { toast } = useToast();
-
-    const gameData = gameId ? multiplayerGameData : soloGameData;
-    const setGameData = gameId ? setMultiplayerGameData : setSoloGameData;
-
-    React.useEffect(() => {
-        let storedPlayerId = localStorage.getItem('sudokuPlayerId');
-        if (!storedPlayerId) {
-            storedPlayerId = uuidv4();
-            localStorage.setItem('sudokuPlayerId', storedPlayerId);
+  if (!playerId) {
+    return <div>Loading...</div>;
+  }
+  
+    const t = { // Midlertidig oversættelsesobjekt for at undgå at skulle importere den store fil.
+        da: {
+            home: 'Hjem',
+            challenges: 'Udfordringer',
+            profile: 'Profil',
+            title: 'Sudoku',
+            continueGame: "Fortsæt spil",
+            difficulty: "Sværhedsgrad",
+            easy: "Let",
+            medium: "Mellem",
+            hard: "Svær",
+            veryhard: "Meget svær",
+            impossible: "Umulig",
+            startGameAlone: "Start alene",
+            coop: "Co-op",
+            vs: "Versus",
+            joinGame: "Deltag i spil",
+            enterGameId: "Indtast spil-ID",
+            join: "Deltag",
+            invalidGameId: "Ugyldigt spil-ID",
+            gameLobby: "Multiplayer Lobby",
+            shareCode: "Del koden med en ven for at spille sammen",
+            playerJoined: "En spiller har sluttet sig til!",
+            waitingForPlayer: "Venter på en spiller...",
+            startGame: "Start spillet",
+            waitingForHost: "Venter på værten...",
+            waitingForHostDescription: "Kun værten kan starte spillet",
+            gameNotFound: "Spil ikke fundet",
+            startChallenge: "Start Udfordring",
+            dailyChallengesTitle: "Daglige Udfordringer",
+            weekdays: ['M', 'T', 'O', 'T', 'F', 'L', 'S'],
+            months: ["Januar", "Februar", "Marts", "April", "Maj", "Juni", "Juli", "August", "September", "Oktober", "November", "December"],
+            settings: 'Indstillinger',
+            language: 'Sprog',
+            back: 'Tilbage',
+            errors: 'Fejl',
+            hint: 'Hint',
+            erase: 'Slet',
+            notes: 'Noter',
+            gameOver: 'Spillet er slut',
+            gameOverMessage: 'Du har lavet 3 fejl.',
+            tryAgain: 'Prøv Igen',
+            watchAdForLife: 'Se Reklame for Ekstra Liv',
+            opportunity: 'Mulighed!',
+            adForHint: 'Se en reklame for et extra hint?',
+            adForLife: 'Se reklame for et ekstra liv?',
+            yes: 'Ja tak',
+            no: 'Nej tak',
+            congratulations: 'Tillykke!',
+            puzzleSolved: 'Du har løst Sudokuen!',
+            backToMenu: 'Tilbage til menuen',
+            opponentWon: 'Din modstander vandt!',
+            opponent: 'Modstander',
+            statistics: 'Statistik',
+            memberSince: 'Medlem siden',
+            solved: 'Løste',
+            bestTime: 'Bedste tid',
+            avgTime: 'Gns. tid',
+        },
+        en: {
+            home: 'Home',
+            challenges: 'Challenges',
+            profile: 'Profile',
+            title: 'Sudoku',
+            continueGame: "Continue Game",
+            difficulty: "Difficulty",
+            easy: "Easy",
+            medium: "Medium",
+            hard: "Hard",
+            veryhard: "Very Hard",
+            impossible: "Impossible",
+            startGameAlone: "Start Solo",
+            coop: "Co-op",
+            vs: "Versus",
+            joinGame: "Join Game",
+            enterGameId: "Enter Game ID",
+            join: "Join",
+            invalidGameId: "Invalid Game ID",
+            gameLobby: "Multiplayer Lobby",
+            shareCode: "Share this code with a friend to play",
+            playerJoined: "A player has joined!",
+            waitingForPlayer: "Waiting for a player...",
+            startGame: "Start Game",
+            waitingForHost: "Waiting for host...",
+            waitingForHostDescription: "Only the host can start the game",
+            gameNotFound: "Game not found",
+            startChallenge: "Start Challenge",
+            dailyChallengesTitle: "Daily Challenges",
+            weekdays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+            settings: 'Settings',
+            language: 'Language',
+            back: 'Back',
+            errors: 'Errors',
+            hint: 'Hint',
+            erase: 'Erase',
+            notes: 'Notes',
+            gameOver: 'Game Over',
+            gameOverMessage: 'You made 3 mistakes.',
+            tryAgain: 'Try Again',
+            watchAdForLife: 'Watch Ad for Extra Life',
+            opportunity: 'Opportunity!',
+            adForHint: 'Watch an ad for an extra hint?',
+            adForLife: 'Watch an ad for an extra life?',
+            yes: 'Yes please',
+            no: 'No thanks',
+            congratulations: 'Congratulations!',
+            puzzleSolved: 'You solved the puzzle!',
+            backToMenu: 'Back to menu',
+            opponentWon: 'Your opponent won!',
+            opponent: 'Opponent',
+            statistics: 'Statistics',
+            memberSince: 'Member since',
+            solved: 'Solved',
+            bestTime: 'Best time',
+            avgTime: 'Avg. time',
         }
-        setPlayerId(storedPlayerId);
-    }, []);
-
-    React.useEffect(() => {
-        if (gameId && !multiplayerGameData) {
-            // This case can happen if we set a gameId but the initial fetch hasn't completed.
-            // We can show a loading state or just wait. For now, we wait.
-            return;
-        }
-        if (multiplayerGameData?.status === 'active' && view !== 'game' && multiplayerGameData.gameId) {
-          setView('game');
-        }
-    }, [multiplayerGameData, view, gameId]);
-
-
-    const t = translations[language];
-
-    const startSoloGame = (options: { difficulty: GameDifficulty, mode: GameMode }) => {
-        const { puzzle, solution } = sudokuGenerator.generate(options.difficulty);
-        const newGame: Game = {
-            difficulty: options.difficulty,
-            mode: options.mode,
-            puzzle: puzzle,
-            solution: solution,
-            status: 'active',
-            players: {
-                [playerId]: {
-                    id: playerId,
-                    board: JSON.parse(JSON.stringify(puzzle)),
-                    notes: sudokuGenerator.createEmptyNotes(),
-                    errors: 0,
-                    timer: 0,
-                    errorCells: [],
-                    hints: 3,
-                }
-            }
-        };
-        setSoloGameData(newGame);
-        setView('game');
-    };
-    
-    const handleResumeGame = () => {
-        const savedGameString = localStorage.getItem('savedSudokuGame');
-        if (savedGameString) {
-            const savedGame = JSON.parse(savedGameString);
-            
-            // Critical fix: Ensure all board-like structures are converted from strings
-            const puzzle = sudokuGenerator.stringToBoard(savedGame.puzzle);
-            const solution = sudokuGenerator.stringToBoard(savedGame.solution);
-            
-            const playerState = savedGame.players[playerId];
-            if (playerState) {
-                playerState.board = sudokuGenerator.stringToBoard(playerState.board);
-                playerState.notes = sudokuGenerator.stringToNotes(playerState.notes);
-            }
-            
-            const gameToResume: Game = {
-                ...savedGame,
-                puzzle: puzzle,
-                solution: solution,
-                players: {
-                    ...savedGame.players,
-                    [playerId]: playerState,
-                }
-            };
-    
-            setSoloGameData(gameToResume);
-            setView('game');
-        }
-    };
-
-    const handleSaveGame = (currentGameData: Game | null) => {
-        if (currentGameData && currentGameData.mode === 'Solo' && playerId && currentGameData.players[playerId]) {
-            const playerState = currentGameData.players[playerId];
-            const savableGameData = {
-                ...currentGameData,
-                puzzle: sudokuGenerator.boardToString(currentGameData.puzzle),
-                solution: sudokuGenerator.boardToString(currentGameData.solution),
-                players: {
-                    [playerId]: {
-                        ...playerState,
-                        board: sudokuGenerator.boardToString(playerState.board),
-                        notes: sudokuGenerator.notesToString(playerState.notes),
-                    }
-                },
-            };
-            localStorage.setItem('savedSudokuGame', JSON.stringify(savableGameData));
-        }
-    };
-    
-    const handleBackToLobby = () => {
-        if (gameData?.mode === 'Solo') {
-            handleSaveGame(gameData);
-        }
-        setSoloGameData(null);
-        setGameId(null); // This will also clear multiplayerGameData via the hook
-        setView('lobby');
-    };
-    
-    const handleStartDailyChallenge = (day: number) => {
-        if (day) {
-            startSoloGame({difficulty: 'Medium', mode: `Daily Challenge - Day ${day}`});
-        }
-    };
-    
-     const handleSetMultiplayerGame = (data: { gameId: string }) => {
-        setGameId(data.gameId);
-    };
-
-    const renderView = () => {
-        if (!playerId) return <div className="flex justify-center items-center h-full">Loading player...</div>;
-        
-        switch (view) {
-            case 'game':
-                // Pass the correct game data based on whether it's solo or multiplayer
-                const activeGameData = gameId ? multiplayerGameData : soloGameData;
-                return activeGameData ? <GameBoard initialGameData={activeGameData} onBack={handleBackToLobby} onSave={handleSaveGame} t={t} playerId={playerId} gameId={gameId} setGameData={setGameData} /> : <div>{t.gameNotFound}</div>;
-            case 'daily':
-                return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
-            case 'profile':
-                return <Profile t={t} language={language} setLanguage={setLanguage} />;
-            case 'multiplayer-lobby':
-                 // The lobby needs the most up-to-date version of the game data
-                 return multiplayerGameData ? <MultiplayerLobby game={multiplayerGameData} t={t} setActiveView={setView} setGameData={setMultiplayerGameData} playerId={playerId}/> : <div className="flex justify-center items-center h-full">{t.gameNotFound}</div>
-            case 'lobby':
-            default:
-                return <Lobby 
-                          onStartGame={startSoloGame} 
-                          onResumeGame={handleResumeGame} 
-                          setActiveView={setView}
-                          setGameData={handleSetMultiplayerGame}
-                          playerId={playerId}
-                          t={t} 
-                       />;
-        }
-    };
-
+    }[language];
+  
     const navItems = [
         { view: 'lobby', icon: Home, label: t.home },
         { view: 'daily', icon: Trophy, label: t.challenges },
         { view: 'profile', icon: UserCircle, label: t.profile },
     ];
-
-    return (
-        <div className="flex flex-col h-screen max-w-lg mx-auto bg-gray-50 shadow-lg">
-            <main className="flex-grow overflow-auto">
-                {renderView()}
-            </main>
-            {view !== 'game' && view !== 'multiplayer-lobby' && (
-                 <nav className="grid grid-cols-3 gap-2 p-2 bg-white border-t border-gray-200">
-                    {navItems.map(item => (
-                        <button key={item.view} onClick={() => setView(item.view as View)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${view === item.view ? 'text-blue-600 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}>
-                            <item.icon className="h-6 w-6" />
-                            <span className="text-xs mt-1">{item.label}</span>
-                        </button>
-                    ))}
-                </nav>
-            )}
-        </div>
-    );
-};
-
-export default App;
-
     
+    const handleStartDailyChallenge = (day: number) => {
+        if (day) {
+            setGameData({ difficulty: 'Medium', mode: `Daily Challenge - Day ${day}` });
+            setActiveView("game");
+        }
+    };
+    
+    const handleBackToLobby = () => {
+        setGameData(null);
+        setActiveView('lobby');
+    }
+  
+  const renderView = () => {
+      switch (activeView) {
+        case "lobby":
+            return (
+                <Lobby
+                  playerId={playerId}
+                  setActiveView={setActiveView}
+                  setGameData={setGameData}
+                  onStartGame={({ difficulty, mode }) => {
+                    setGameData({ difficulty, mode });
+                    setActiveView("game");
+                  }}
+                  onResumeGame={() => {
+                    const saved = localStorage.getItem("savedSudokuGame");
+                    if (saved) {
+                      setGameData(JSON.parse(saved));
+                      setActiveView("game");
+                    }
+                  }}
+                  t={t}
+                />
+            );
+        case "multiplayer-lobby":
+            return gameData?.gameId ? (
+                <MultiplayerLobby
+                    game={gameData}
+                    playerId={playerId}
+                    setActiveView={setActiveView}
+                    setGameData={setGameData}
+                    t={t}
+                />
+            ) : <div>{t.gameNotFound}</div>;
+        case "game":
+             return gameData ? (
+                <GameBoard
+                  initialGameData={gameData}
+                  playerId={playerId}
+                  onBack={handleBackToLobby}
+                  setGameData={setGameData}
+                  t={t}
+                />
+            ) : <div>{t.gameNotFound}</div>;
+        case 'daily':
+            return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
+        case 'profile':
+            return <Profile t={t} language={language} setLanguage={setLanguage} />;
+        default:
+             return (
+                <Lobby
+                  playerId={playerId}
+                  setActiveView={setActiveView}
+                  setGameData={setGameData}
+                  onStartGame={({ difficulty, mode }) => {
+                    setGameData({ difficulty, mode });
+                    setActiveView("game");
+                  }}
+                  onResumeGame={() => {
+                    const saved = localStorage.getItem("savedSudokuGame");
+                    if (saved) {
+                      setGameData(JSON.parse(saved));
+                      setActiveView("game");
+                    }
+                  }}
+                  t={t}
+                />
+            );
+      }
+  }
+
+  return (
+    <div className="flex flex-col h-screen max-w-lg mx-auto bg-gray-50 shadow-lg">
+        <main className="flex-grow overflow-auto">
+            {renderView()}
+        </main>
+        {activeView !== 'game' && activeView !== 'multiplayer-lobby' && (
+             <nav className="grid grid-cols-3 gap-2 p-2 bg-white border-t border-gray-200">
+                {navItems.map(item => (
+                    <button key={item.view} onClick={() => setActiveView(item.view)} className={`flex flex-col items-center justify-center p-2 rounded-lg transition-colors ${activeView === item.view ? 'text-blue-600 bg-blue-100' : 'text-gray-500 hover:bg-gray-100'}`}>
+                        <item.icon className="h-6 w-6" />
+                        <span className="text-xs mt-1">{item.label}</span>
+                    </button>
+                ))}
+            </nav>
+        )}
+    </div>
+  );
+}

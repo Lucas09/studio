@@ -9,14 +9,14 @@ import { useGameUpdates } from '@/hooks/use-game-updates';
 
 const MultiplayerLobby = ({ game, t, setActiveView, setGameData: setGameDataProp, playerId }) => {
     const { toast } = useToast();
-    const { gameData, setGameData } = useGameUpdates(game?.gameId, game);
+    const { gameData } = useGameUpdates(game?.gameId);
 
     // Listen for game updates
     React.useEffect(() => {
         if (gameData) {
             setGameDataProp(gameData);
              // If game becomes active, switch to game board view
-            if (gameData.status === 'active' && Object.keys(gameData.players).length > 1) {
+            if (gameData.status === 'active') {
                 setActiveView('game');
             }
         }

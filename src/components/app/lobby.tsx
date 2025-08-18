@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import { History, Users, Sword } from 'lucide-react';
@@ -30,26 +31,24 @@ const Lobby = ({
     'Impossible': t.impossible
   };
 
-  // 🔑 Opret multiplayer-spil
   const handleCreateMultiplayer = async (mode: 'Co-op' | 'Versus') => {
     try {
       const gameId = await createMultiplayerGame(playerId, difficulty, mode);
-      setGameData({ gameId });               // gem i state
-      setActiveView('multiplayer-lobby');    // hop til lobby
+      setGameData({ gameId });
+      setActiveView('multiplayer-lobby');
     } catch (err) {
       console.error("Error creating game:", err);
       alert("Kunne ikke oprette spil. Prøv igen.");
     }
   };
 
-  // 🔑 Join eksisterende spil
   const handleJoinSubmit = async (e) => {
     e.preventDefault();
     const code = joinCode.trim();
 
     if (code.length === 20) { // Firestore IDs er 20 chars
       try {
-        await joinMultiplayerGame(code, playerId);  // tilføj spiller til Firestore
+        await joinMultiplayerGame(code, playerId);
         setGameData({ gameId: code });
         setActiveView('multiplayer-lobby');
       } catch (err) {
@@ -76,13 +75,13 @@ const Lobby = ({
       <div className="bg-white p-6 rounded-2xl shadow-md flex-grow flex flex-col">
         <h2 className="text-xl font-semibold mb-4 text-gray-700">{t.difficulty}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-          {Object.entries(difficulties).map(([key, value]) => (
+          {Object.keys(difficulties).map((key) => (
             <button 
               key={key} 
               onClick={() => setDifficulty(key as GameDifficulty)} 
               className={`py-3 rounded-lg text-sm font-semibold transition-colors 
                 ${difficulty === key ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
-              {value}
+              {difficulties[key]}
             </button>
           ))}
         </div>

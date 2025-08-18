@@ -2,9 +2,10 @@
 "use client";
 import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, Repeat, Video } from 'lucide-react';
-import type { Game, Player } from '@/lib/game-state';
+import type { Game, Player, GameDifficulty } from '@/lib/game-state';
 import { updateGame, endGame } from '@/services/game-service';
 import { useGameUpdates } from '@/hooks/use-game-updates';
+import { sudokuGenerator } from '@/lib/sudoku';
 
 
 const calculateInitialCounts = (board) => {
@@ -64,9 +65,17 @@ const Confetti = () => {
 };
 
 
-const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGameData }) => {
-    const isMultiplayer = !!gameId;
-    const gameData = initialGameData;
+const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameDataProp }) => {
+    const isMultiplayer = !!initialGameData.gameId;
+    
+    // For multiplayer, useGameUpdates will keep the data fresh.
+    // For solo, we manage state internally.
+    const { gameData: liveGameData } = useGameUpdates(initialGameData.gameId);
+    const [soloGameData, setSoloGameData] = React.useState<Game | null>(null);
+
+    const gameData = isMultiplayer ? liveGameData : soloGameData;
+    const setGameData = isMultiplayer ? setGameDataProp : setSoloGameData;
+
 
     const [isNoteMode, setIsNoteMode] = React.useState(false);
     const [selectedCell, setSelectedCell] = React.useState(null);
@@ -75,11 +84,70 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
     const [isGameWon, setIsGameWon] = React.useState(false);
     const [isAdPlaying, setIsAdPlaying] = React.useState(false);
     const [adMessage, setAdMessage] = React.useState('');
-
     
-    const playerState: Player | undefined = gameData.players?.[playerId];
-    const opponentId = isMultiplayer ? Object.keys(gameData.players || {}).find(id => id !== playerId) : null;
-    const opponentState: Player | undefined = opponentId ? gameData.players?.[opponentId] : undefined;
+    // Initialize game state
+    React.useEffect(() => {
+        if (!isMultiplayer && !soloGameData) {
+            // This is a new solo game
+            const { puzzle, solution } = sudokuGenerator.generate(initialGameData.difficulty as GameDifficulty);
+            const newGame: Game = {
+                difficulty: initialGameData.difficulty as GameDifficulty,
+                mode: initialGameData.mode,
+                puzzle: puzzle,
+                solution: solution,
+                status: 'active',
+                players: {
+                    [playerId]: {
+                        id: playerId,
+                        board: JSON.parse(JSON.stringify(puzzle)),
+                        notes: sudokuGenerator.createEmptyNotes(),
+                        errors: 0,
+                        timer: 0,
+                        errorCells: [],
+                        hints: 3,
+                    }
+                }
+            };
+             // If it is a resumed game, overwrite with saved data
+            if(initialGameData.players) {
+                const pState = initialGameData.players[playerId];
+                if (pState) {
+                    newGame.players[playerId].board = sudokuGenerator.stringToBoard(pState.board as any);
+                    newGame.players[playerId].notes = sudokuGenerator.stringToNotes(pState.notes as any);
+                    newGame.players[playerId].timer = pState.timer;
+                    newGame.players[playerId].errors = pState.errors;
+                    newGame.players[playerId].hints = pState.hints;
+                    newGame.players[playerId].errorCells = pState.errorCells;
+                }
+            }
+
+            setSoloGameData(newGame);
+        }
+    }, [initialGameData, isMultiplayer, playerId, soloGameData]);
+    
+    const handleSaveGame = (currentGameData: Game | null) => {
+        if (currentGameData && currentGameData.mode !== 'Co-op' && currentGameData.mode !== 'Versus' && playerId && currentGameData.players[playerId]) {
+            const playerState = currentGameData.players[playerId];
+            const savableGameData = {
+                ...currentGameData,
+                puzzle: sudokuGenerator.boardToString(currentGameData.puzzle),
+                solution: sudokuGenerator.boardToString(currentGameData.solution),
+                players: {
+                    [playerId]: {
+                        ...playerState,
+                        board: sudokuGenerator.boardToString(playerState.board),
+                        notes: sudokuGenerator.notesToString(playerState.notes),
+                    }
+                },
+            };
+            localStorage.setItem('savedSudokuGame', JSON.stringify(savableGameData));
+        }
+    };
+
+
+    const playerState: Player | undefined = gameData?.players?.[playerId];
+    const opponentId = isMultiplayer ? Object.keys(gameData?.players || {}).find(id => id !== playerId) : null;
+    const opponentState: Player | undefined = opponentId ? gameData?.players?.[opponentId] : undefined;
 
     const board = playerState?.board
     const notes = playerState?.notes
@@ -89,14 +157,14 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
 
     const [numberCounts, setNumberCounts] = React.useState(() => calculateInitialCounts(board));
     
-    const puzzle = gameData.puzzle;
-    const solution = gameData.solution;
+    const puzzle = gameData?.puzzle;
+    const solution = gameData?.solution;
 
     React.useEffect(() => {
         if (gameData?.status === 'finished') {
             if (gameData.winner && gameData.winner === playerId) {
                 setIsGameWon(true);
-            } else {
+            } else if (gameData.winner !== null) { // Opponent won or it's a draw/loss
                 setIsGameOver(true);
             }
         }
@@ -104,13 +172,13 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
     
     React.useEffect(() => {
         if (!isMultiplayer) {
-            onSave(gameData);
+            handleSaveGame(gameData);
         }
-    }, [gameData, onSave, isMultiplayer]);
+    }, [gameData, isMultiplayer]);
 
     // Timer logic
     React.useEffect(() => {
-        if (gameData.status !== 'active' || isGameWon || isGameOver || !playerState) return;
+        if (gameData?.status !== 'active' || isGameWon || isGameOver || !playerState) return;
         
         const interval = setInterval(() => {
             const newTime = (playerState.timer || 0) + 1;
@@ -118,15 +186,15 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
             
             if (isMultiplayer && gameData.gameId) {
                 updateGame(gameData.gameId, playerId, updates);
-            } else {
+            } else if (soloGameData) {
                  const updatedPlayerState = { ...playerState, ...updates };
-                 const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: updatedPlayerState }};
-                 setGameData(updatedGame as Game);
+                 const updatedGame = { ...soloGameData, players: { ...soloGameData.players, [playerId]: updatedPlayerState }};
+                 setSoloGameData(updatedGame as Game);
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [gameData, playerState, isMultiplayer, setGameData, isGameWon, isGameOver]);
+    }, [gameData, playerState, isMultiplayer, setSoloGameData, isGameWon, isGameOver, soloGameData]);
 
     React.useEffect(() => {
         if (board) {
@@ -142,20 +210,20 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
                 endGame(gameData.gameId, 'lost');
             }
         }
-    }, [errors, isMultiplayer, gameData.gameId]);
+    }, [errors, isMultiplayer, gameData?.gameId]);
 
     const updateGameState = (updates: Partial<Player>) => {
-        if (isMultiplayer && gameData.gameId) {
+        if (isMultiplayer && gameData?.gameId) {
             updateGame(gameData.gameId, playerId, updates);
-        } else {
+        } else if(soloGameData) {
              const updatedPlayerState = { ...playerState, ...updates };
-             const updatedGame = { ...gameData, players: { ...gameData.players, [playerId]: updatedPlayerState }};
-             setGameData(updatedGame as Game);
+             const updatedGame = { ...soloGameData, players: { ...soloGameData.players, [playerId]: updatedPlayerState }};
+             setSoloGameData(updatedGame as Game);
         }
     };
     
     const checkWinCondition = (currentBoard) => {
-        if (!currentBoard) return;
+        if (!currentBoard || !solution) return;
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
                 if (!currentBoard[r] || currentBoard[r][c] === null) {
@@ -173,7 +241,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
         }
 
         setIsGameWon(true);
-        if(isMultiplayer && gameData.gameId) {
+        if(isMultiplayer && gameData?.gameId) {
              endGame(gameData.gameId, 'win', playerId);
         }
     };
@@ -212,7 +280,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
     };
 
     const handleNumberInput = (num) => {
-        if (!selectedCell || isGameWon || gameData.status === 'finished' || !playerState || !board || !notes) return;
+        if (!selectedCell || isGameWon || gameData?.status === 'finished' || !playerState || !board || !notes || !puzzle) return;
         const { row, col } = selectedCell;
         
         if (puzzle[row][col] !== null) return; 
@@ -231,7 +299,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
             const newBoard = board.map(r => [...r]);
             newBoard[row][col] = num;
             
-            if (solution[row][col] === num) {
+            if (solution && solution[row][col] === num) {
                 const newNotes = clearNotesForValue(notes, row, col, num);
                 setHighlightedNumber(num);
                 updateGameState({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
@@ -244,7 +312,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
     };
     
     const handleErase = () => {
-        if (!selectedCell || isGameWon || gameData.status === 'finished' || !playerState || !board) return;
+        if (!selectedCell || isGameWon || gameData?.status === 'finished' || !playerState || !board || !puzzle) return;
         const { row, col } = selectedCell;
         if (puzzle[row][col] !== null) return;
         
@@ -261,7 +329,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
     };
 
     const handleHint = () => {
-        if (hints > 0 && !isGameWon && board) {
+        if (hints > 0 && !isGameWon && board && solution) {
             const emptyCells = [];
             for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board[r][c] === null) emptyCells.push({r, c});
             if(emptyCells.length > 0) {
@@ -304,7 +372,7 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
         </div>
     );
     
-    if (!gameData || !playerState || !board || !notes) {
+    if (!gameData || !playerState || !board || !notes || !puzzle) {
         return <div className="flex justify-center items-center h-full">Loading...</div>;
     }
 
@@ -318,7 +386,8 @@ const GameBoard = ({ initialGameData, onBack, onSave, t, playerId, gameId, setGa
     const translatedDifficulty = difficultyTranslations[gameData.difficulty] || gameData.difficulty;
 
     const gameWonByCurrentPlayer = isGameWon && (gameData.winner === playerId || !isMultiplayer);
-    const gameLost = isGameOver || (gameData.status === 'finished' && gameData.winner !== playerId);
+    const gameLost = isGameOver || (gameData.status === 'finished' && gameData.winner !== null && gameData.winner !== playerId);
+
 
     return (
         <div className="p-4 bg-gray-50 text-gray-800 flex flex-col h-full justify-between">
