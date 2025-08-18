@@ -1,4 +1,3 @@
-
 "use client";
 import React from 'react';
 import { History, Users, Sword } from 'lucide-react';
@@ -32,6 +31,7 @@ const Lobby = ({
   };
 
   const handleCreateMultiplayer = async (mode: 'Co-op' | 'Versus') => {
+    if (!playerId) return;
     try {
       const gameId = await createMultiplayerGame(playerId, difficulty, mode);
       setGameData({ gameId });
@@ -42,11 +42,12 @@ const Lobby = ({
     }
   };
 
-  const handleJoinSubmit = async (e) => {
+  const handleJoinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!playerId) return;
     const code = joinCode.trim();
 
-    if (code.length === 20) { // Firestore IDs er 20 chars
+    if (code.length === 20) {
       try {
         await joinMultiplayerGame(code, playerId);
         setGameData({ gameId: code });
@@ -75,13 +76,13 @@ const Lobby = ({
       <div className="bg-white p-6 rounded-2xl shadow-md flex-grow flex flex-col">
         <h2 className="text-xl font-semibold mb-4 text-gray-700">{t.difficulty}</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-          {Object.keys(difficulties).map((key) => (
+          {Object.entries(difficulties).map(([key, value]) => (
             <button 
               key={key} 
               onClick={() => setDifficulty(key as GameDifficulty)} 
               className={`py-3 rounded-lg text-sm font-semibold transition-colors 
                 ${difficulty === key ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
-              {difficulties[key]}
+              {value}
             </button>
           ))}
         </div>

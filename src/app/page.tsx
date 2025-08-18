@@ -1,4 +1,3 @@
-
 "use client";
 import React, { useState } from "react";
 import { usePlayerId } from "@/hooks/use-player-id";
@@ -9,12 +8,15 @@ import type { Game } from "@/lib/game-state";
 import DailyChallenges from "@/components/app/daily-challenges";
 import Profile from "@/components/app/profile";
 import { Home, Trophy, UserCircle } from 'lucide-react';
+import { sudokuGenerator } from '@/lib/sudoku';
+
 
 export default function App() {
-  const playerId = usePlayerId();       // 🔑 Genererer/gemmer unik spiller-ID
+  const playerId = usePlayerId();
   const [activeView, setActiveView] = useState("lobby");
   const [gameData, setGameData] = useState<Partial<Game> | null>(null);
   const [language, setLanguage] = React.useState<'da' | 'en'>('da');
+
 
   if (!playerId) {
     return <div>Loading...</div>;
@@ -144,7 +146,12 @@ export default function App() {
         { view: 'daily', icon: Trophy, label: t.challenges },
         { view: 'profile', icon: UserCircle, label: t.profile },
     ];
-    
+
+    const handleBackToLobby = () => {
+        setGameData(null);
+        setActiveView('lobby');
+    }
+  
     const handleStartDailyChallenge = (day: number) => {
         if (day) {
             setGameData({ difficulty: 'Medium', mode: `Daily Challenge - Day ${day}` });
@@ -152,11 +159,27 @@ export default function App() {
         }
     };
     
-    const handleBackToLobby = () => {
-        setGameData(null);
-        setActiveView('lobby');
+  const onStartGame=({ difficulty, mode }) => {
+    setGameData({ difficulty, mode });
+    setActiveView("game");
+  }
+
+  const onResumeGame=() => {
+    const saved = localStorage.getItem("savedSudokuGame");
+    if (saved) {
+      const savedGame = JSON.parse(saved);
+      // Ensure all board data is converted back from strings
+      savedGame.puzzle = sudokuGenerator.stringToBoard(savedGame.puzzle);
+      savedGame.solution = sudokuGenerator.stringToBoard(savedGame.solution);
+      if (savedGame.players && savedGame.players[playerId]) {
+          savedGame.players[playerId].board = sudokuGenerator.stringToBoard(savedGame.players[playerId].board);
+          savedGame.players[playerId].notes = sudokuGenerator.stringToNotes(savedGame.players[playerId].notes);
+      }
+      setGameData(savedGame);
+      setActiveView("game");
     }
-  
+  }
+
   const renderView = () => {
       switch (activeView) {
         case "lobby":
@@ -165,17 +188,8 @@ export default function App() {
                   playerId={playerId}
                   setActiveView={setActiveView}
                   setGameData={setGameData}
-                  onStartGame={({ difficulty, mode }) => {
-                    setGameData({ difficulty, mode });
-                    setActiveView("game");
-                  }}
-                  onResumeGame={() => {
-                    const saved = localStorage.getItem("savedSudokuGame");
-                    if (saved) {
-                      setGameData(JSON.parse(saved));
-                      setActiveView("game");
-                    }
-                  }}
+                  onStartGame={onStartGame}
+                  onResumeGame={onResumeGame}
                   t={t}
                 />
             );
@@ -209,17 +223,8 @@ export default function App() {
                   playerId={playerId}
                   setActiveView={setActiveView}
                   setGameData={setGameData}
-                  onStartGame={({ difficulty, mode }) => {
-                    setGameData({ difficulty, mode });
-                    setActiveView("game");
-                  }}
-                  onResumeGame={() => {
-                    const saved = localStorage.getItem("savedSudokuGame");
-                    if (saved) {
-                      setGameData(JSON.parse(saved));
-                      setActiveView("game");
-                    }
-                  }}
+                  onStartGame={onStartGame}
+                  onResumeGame={onResumeGame}
                   t={t}
                 />
             );
