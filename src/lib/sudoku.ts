@@ -6,22 +6,18 @@ export const sudokuGenerator = {
         sudokuGenerator.solve(puzzle); // This creates a full, valid board
         let holes;
         switch (difficulty) {
-            case 'Let':
             case 'Easy':
                 holes = 35;
                 break;
             case 'Medium':
                 holes = 45;
                 break;
-            case 'Svær':
             case 'Hard':
                 holes = 50;
                 break;
-            case 'Meget svær':
             case 'Very Hard':
                 holes = 55;
                 break;
-            case 'Umulig':
             case 'Impossible':
                 holes = 60;
                 break;
