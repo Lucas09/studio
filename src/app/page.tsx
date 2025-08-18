@@ -38,10 +38,15 @@ const App = () => {
     }, []);
 
     React.useEffect(() => {
+        if (gameId && !multiplayerGameData) {
+            // This case can happen if we set a gameId but the initial fetch hasn't completed.
+            // We can show a loading state or just wait. For now, we wait.
+            return;
+        }
         if (multiplayerGameData?.status === 'active' && view !== 'game' && multiplayerGameData.gameId) {
           setView('game');
         }
-    }, [multiplayerGameData, view]);
+    }, [multiplayerGameData, view, gameId]);
 
 
     const t = translations[language];
@@ -69,32 +74,32 @@ const App = () => {
         setSoloGameData(newGame);
         setView('game');
     };
-
+    
     const handleResumeGame = () => {
         const savedGameString = localStorage.getItem('savedSudokuGame');
         if (savedGameString) {
             const savedGame = JSON.parse(savedGameString);
             
+            // Critical fix: Ensure all board-like structures are converted from strings
+            const puzzle = sudokuGenerator.stringToBoard(savedGame.puzzle);
+            const solution = sudokuGenerator.stringToBoard(savedGame.solution);
+            
             const playerState = savedGame.players[playerId];
             if (playerState) {
-                if(playerState.notes && typeof playerState.notes === 'string') {
-                    playerState.notes = sudokuGenerator.stringToNotes(playerState.notes);
-                }
-                if(playerState.board && typeof playerState.board === 'string') {
-                    playerState.board = sudokuGenerator.stringToBoard(playerState.board);
-                }
+                playerState.board = sudokuGenerator.stringToBoard(playerState.board);
+                playerState.notes = sudokuGenerator.stringToNotes(playerState.notes);
             }
             
             const gameToResume: Game = {
                 ...savedGame,
-                puzzle: sudokuGenerator.stringToBoard(savedGame.puzzle),
-                solution: sudokuGenerator.stringToBoard(savedGame.solution),
+                puzzle: puzzle,
+                solution: solution,
                 players: {
                     ...savedGame.players,
                     [playerId]: playerState,
                 }
             };
-
+    
             setSoloGameData(gameToResume);
             setView('game');
         }
@@ -103,10 +108,8 @@ const App = () => {
     const handleSaveGame = (currentGameData: Game | null) => {
         if (currentGameData && currentGameData.mode === 'Solo' && playerId && currentGameData.players[playerId]) {
             const playerState = currentGameData.players[playerId];
-            // Create a savable version of the game data
             const savableGameData = {
                 ...currentGameData,
-                 // board and notes must be converted to strings for localStorage
                 puzzle: sudokuGenerator.boardToString(currentGameData.puzzle),
                 solution: sudokuGenerator.boardToString(currentGameData.solution),
                 players: {
@@ -126,7 +129,7 @@ const App = () => {
             handleSaveGame(gameData);
         }
         setSoloGameData(null);
-        setGameId(null);
+        setGameId(null); // This will also clear multiplayerGameData via the hook
         setView('lobby');
     };
     
@@ -135,26 +138,33 @@ const App = () => {
             startSoloGame({difficulty: 'Medium', mode: `Daily Challenge - Day ${day}`});
         }
     };
+    
+     const handleSetMultiplayerGame = (data: { gameId: string }) => {
+        setGameId(data.gameId);
+    };
 
     const renderView = () => {
-        if (!playerId) return <div>Loading player...</div>;
+        if (!playerId) return <div className="flex justify-center items-center h-full">Loading player...</div>;
         
         switch (view) {
             case 'game':
-                return gameData ? <GameBoard initialGameData={gameData} onBack={handleBackToLobby} onSave={handleSaveGame} t={t} playerId={playerId} gameId={gameId} setGameData={setGameData} /> : <div>{t.gameNotFound}</div>;
+                // Pass the correct game data based on whether it's solo or multiplayer
+                const activeGameData = gameId ? multiplayerGameData : soloGameData;
+                return activeGameData ? <GameBoard initialGameData={activeGameData} onBack={handleBackToLobby} onSave={handleSaveGame} t={t} playerId={playerId} gameId={gameId} setGameData={setGameData} /> : <div>{t.gameNotFound}</div>;
             case 'daily':
                 return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
             case 'profile':
                 return <Profile t={t} language={language} setLanguage={setLanguage} />;
             case 'multiplayer-lobby':
-                 return gameData ? <MultiplayerLobby game={gameData} t={t} setActiveView={setView} setGameData={setMultiplayerGameData} playerId={playerId}/> : <div>{t.gameNotFound}</div>
+                 // The lobby needs the most up-to-date version of the game data
+                 return multiplayerGameData ? <MultiplayerLobby game={multiplayerGameData} t={t} setActiveView={setView} setGameData={setMultiplayerGameData} playerId={playerId}/> : <div className="flex justify-center items-center h-full">{t.gameNotFound}</div>
             case 'lobby':
             default:
                 return <Lobby 
                           onStartGame={startSoloGame} 
                           onResumeGame={handleResumeGame} 
                           setActiveView={setView}
-                          setGameData={(data) => setGameId(data.gameId)}
+                          setGameData={handleSetMultiplayerGame}
                           playerId={playerId}
                           t={t} 
                        />;
@@ -187,3 +197,5 @@ const App = () => {
 };
 
 export default App;
+
+    
