@@ -3,11 +3,9 @@
 import { db } from '@/lib/firebase';
 import { sudokuGenerator } from '@/lib/sudoku';
 import { collection, doc, getDoc, setDoc, updateDoc, serverTimestamp, addDoc, writeBatch } from "firebase/firestore";
-import type { Game, Player, GameDifficulty, GameMode, FirestoreGame, FirestorePlayer } from '@/lib/game-state';
-import { fromFirestoreGame } from '@/lib/game-state';
+import type { Player, GameDifficulty, GameMode, FirestoreGame, FirestorePlayer } from '@/lib/game-state';
 
-
-export const createGame = async (difficulty: GameDifficulty, mode: GameMode, playerId: string): Promise<Game | null> => {
+export const createMultiplayerGame = async (playerId: string, difficulty: GameDifficulty, mode: GameMode): Promise<string> => {
     const { puzzle, solution } = sudokuGenerator.generate(difficulty);
     const puzzleString = sudokuGenerator.boardToString(puzzle);
     
@@ -50,23 +48,21 @@ export const createGame = async (difficulty: GameDifficulty, mode: GameMode, pla
         createdAt: serverTimestamp()
     });
     
-    const createdGameSnap = await getDoc(gameRef);
-    return fromFirestoreGame(createdGameSnap.data() as FirestoreGame, gameRef.id);
+    return gameRef.id;
 };
 
-export const joinGame = async (gameId: string, playerId: string): Promise<Game | null> => {
+export const joinMultiplayerGame = async (gameId: string, playerId: string): Promise<void> => {
     const gameRef = doc(db, 'games', gameId);
     const gameSnap = await getDoc(gameRef);
 
     if (!gameSnap.exists()) {
-        console.error("Game not found!");
-        return null;
+        throw new Error("Game not found!");
     }
 
     const firestoreGame = gameSnap.data() as FirestoreGame;
     if (Object.keys(firestoreGame.players).length >= 2) {
          console.error("Game is full!");
-         return fromFirestoreGame(firestoreGame, gameId); // Still return the game data
+         return;
     }
     
     const newPlayer: FirestorePlayer = {
@@ -89,9 +85,6 @@ export const joinGame = async (gameId: string, playerId: string): Promise<Game |
     }
 
     await updateDoc(gameRef, updates);
-    
-    const updatedGameSnap = await getDoc(gameRef);
-    return fromFirestoreGame(updatedGameSnap.data() as FirestoreGame, updatedGameSnap.id);
 };
 
 export const updateGame = async (gameId: string, playerId: string, updates: Partial<Player>) => {
@@ -105,12 +98,10 @@ export const updateGame = async (gameId: string, playerId: string, updates: Part
     for(const key of Object.keys(updates)) {
         let value = updates[key];
         
-        // Player-specific updates like timer, errors, hints
         if (key === 'timer' || key === 'errors' || key === 'hints') {
              updateData[`players.${playerId}.${key}`] = value;
         }
         
-        // Board state updates depend on game mode
         if (key === 'board' || key === 'notes' || key === 'errorCells') {
             const modePrefix = firestoreGame.mode === 'Co-op' ? 'coopState' : `versusState.${playerId}`;
             let serializedValue = value;

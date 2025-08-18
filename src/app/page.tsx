@@ -10,7 +10,6 @@ import MultiplayerLobby from '@/components/app/multiplayer-lobby';
 import { translations } from '@/lib/translations';
 import { sudokuGenerator } from '@/lib/sudoku';
 import type { Game, GameDifficulty, GameMode } from '@/lib/game-state';
-import { createGame, joinGame } from '@/services/game-service';
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/hooks/use-toast";
 import { useGameUpdates } from '@/hooks/use-game-updates';
@@ -70,37 +69,12 @@ const App = () => {
         setSoloGameData(newGame);
         setView('game');
     };
-    
-    const handleCreateMultiplayerGame = async (options: { difficulty: GameDifficulty, mode: GameMode }) => {
-        if (!playerId) return;
-        const newGame = await createGame(options.difficulty, options.mode, playerId);
-        if (newGame && newGame.gameId) {
-            setGameId(newGame.gameId);
-            setView('multiplayer-lobby');
-        }
-    };
-    
-    const handleJoinMultiplayerGame = async (gameIdToJoin: string) => {
-        if (!playerId || !gameIdToJoin) return;
-        const joinedGame = await joinGame(gameIdToJoin, playerId);
-        if (joinedGame && joinedGame.gameId) {
-             setGameId(joinedGame.gameId);
-             if (joinedGame.status === 'waiting') {
-                setView('multiplayer-lobby');
-             } else if (joinedGame.status === 'active') {
-                setView('game');
-             }
-        } else {
-            toast({ title: t.gameNotFound, variant: 'destructive'});
-        }
-    };
 
     const handleResumeGame = () => {
         const savedGameString = localStorage.getItem('savedSudokuGame');
         if (savedGameString) {
             const savedGame = JSON.parse(savedGameString);
             
-            // This is the critical fix. Ensure all stringified board data is parsed back into the correct format.
             const playerState = savedGame.players[playerId];
             if (playerState) {
                 if(playerState.notes && typeof playerState.notes === 'string') {
@@ -111,7 +85,6 @@ const App = () => {
                 }
             }
             
-            // Reconstruct the full game object for the state, ensuring puzzle/solution are also parsed.
             const gameToResume: Game = {
                 ...savedGame,
                 puzzle: sudokuGenerator.stringToBoard(savedGame.puzzle),
@@ -177,7 +150,14 @@ const App = () => {
                  return gameData ? <MultiplayerLobby game={gameData} t={t} setActiveView={setView} setGameData={setMultiplayerGameData} playerId={playerId}/> : <div>{t.gameNotFound}</div>
             case 'lobby':
             default:
-                return <Lobby onStartGame={startSoloGame} onResumeGame={handleResumeGame} onCreateMultiplayerGame={handleCreateMultiplayerGame} onJoinMultiplayerGame={handleJoinMultiplayerGame} t={t} />;
+                return <Lobby 
+                          onStartGame={startSoloGame} 
+                          onResumeGame={handleResumeGame} 
+                          setActiveView={setView}
+                          setGameData={(data) => setGameId(data.gameId)}
+                          playerId={playerId}
+                          t={t} 
+                       />;
         }
     };
 
