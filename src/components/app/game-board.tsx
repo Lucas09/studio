@@ -453,5 +453,3 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
 };
 
 export default GameBoard;
-
-    
