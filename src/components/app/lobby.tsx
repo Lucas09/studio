@@ -120,8 +120,7 @@ const Lobby = ({
               type="submit" 
               className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl">
               {t.join}
-            </button>
-          </form>
+            </button>          </form>
         </div>
       </div>
     </div>
