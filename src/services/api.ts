@@ -127,7 +127,7 @@ class ApiService {
   }
 
   async getGameState(gameId: string, playerId: string): Promise<ApiResponse<Game>> {
-    const response = await this.request<ApiGameState>(`/games/${gameId}?playerId=${encodeURIComponent(playerId)}`);
+    const response = await this.request<ApiGameState>(`/api/games/${gameId}?playerId=${encodeURIComponent(playerId)}`);
     
     if (response.success && response.data) {
       const convertedGame = fromApiGameState(response.data);
@@ -155,7 +155,7 @@ class ApiService {
         isComplete: boolean;
         winner: string | null;
       };
-    }>(`/games/${request.gameId}/move`, {
+    }>(`/api/games/${request.gameId}/move`, {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -185,7 +185,7 @@ class ApiService {
     gameId: string;
     status: string;
   }>> {
-    return this.request(`/games/${gameId}/start`, {
+    return this.request(`/api/games/${gameId}/start`, {
       method: 'POST',
       body: JSON.stringify({ playerId }),
     });
