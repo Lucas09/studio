@@ -106,7 +106,7 @@ class ApiService {
     playerCount: number;
     maxPlayers: number;
   }>> {
-    return this.request('/games/create', {
+    return this.request('/api/games/create', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -120,7 +120,7 @@ class ApiService {
     playerCount: number;
     maxPlayers: number;
   }>> {
-    return this.request('/games/join', {
+    return this.request('/api/games/join', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -192,12 +192,12 @@ class ApiService {
   }
 
   async getActiveGames(): Promise<ApiResponse<GameListResponse>> {
-    return this.request('/games');
+    return this.request('/api/games');
   }
 
   // Statistics
   async getUserStats(userId: string): Promise<ApiResponse<UserStats>> {
-    return this.request(`/stats/user/${encodeURIComponent(userId)}`);
+    return this.request(`/api/stats/user/${encodeURIComponent(userId)}`);
   }
 
   async getUserGames(
@@ -214,7 +214,7 @@ class ApiService {
     };
   }>> {
     return this.request(
-      `/stats/user/${encodeURIComponent(userId)}/games?limit=${limit}&offset=${offset}`
+      `/api/stats/user/${encodeURIComponent(userId)}/games?limit=${limit}&offset=${offset}`
     );
   }
 
@@ -240,7 +240,7 @@ class ApiService {
     if (difficulty) params.append('difficulty', difficulty);
     params.append('limit', limit.toString());
     
-    return this.request(`/stats/leaderboard?${params.toString()}`);
+    return this.request(`/api/stats/leaderboard?${params.toString()}`);
   }
 
   async getGlobalStats(): Promise<ApiResponse<{
@@ -252,7 +252,7 @@ class ApiService {
     gamesCompletedToday: number;
     lastUpdated: string;
   }>> {
-    return this.request('/stats/global');
+    return this.request('/api/stats/global');
   }
 
   async getDailyChallengeStats(date?: string): Promise<ApiResponse<{
@@ -265,7 +265,7 @@ class ApiService {
     const params = new URLSearchParams();
     if (date) params.append('date', date);
     
-    return this.request(`/stats/daily-challenges?${params.toString()}`);
+    return this.request(`/api/stats/daily-challenges?${params.toString()}`);
   }
 
   // Health check
