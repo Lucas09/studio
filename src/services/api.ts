@@ -1,4 +1,4 @@
-import { Game, GameDifficulty, GameMode, Player } from '@/lib/game-state';
+import { Game, GameDifficulty, GameMode, Player, ApiGameState, fromApiGameState } from '@/lib/game-state';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -67,10 +67,12 @@ export interface GameRecord {
 class ApiService {
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    useApiPrefix: boolean = true
   ): Promise<ApiResponse<T>> {
     try {
-      const url = `${API_BASE_URL}${endpoint}`;
+      const baseUrl = useApiPrefix ? API_BASE_URL : API_BASE_URL.replace('/api', '');
+      const url = `${baseUrl}${endpoint}`;
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +127,17 @@ class ApiService {
   }
 
   async getGameState(gameId: string, playerId: string): Promise<ApiResponse<Game>> {
-    return this.request(`/games/${gameId}?playerId=${encodeURIComponent(playerId)}`);
+    const response = await this.request<ApiGameState>(`/games/${gameId}?playerId=${encodeURIComponent(playerId)}`);
+    
+    if (response.success && response.data) {
+      const convertedGame = fromApiGameState(response.data);
+      return {
+        success: true,
+        data: convertedGame,
+      };
+    }
+    
+    return response as ApiResponse<Game>;
   }
 
   async makeMove(request: MakeMoveRequest): Promise<ApiResponse<{
@@ -136,10 +148,37 @@ class ApiService {
       winner: string | null;
     };
   }>> {
-    return this.request(`/games/${request.gameId}/move`, {
+    const response = await this.request<{
+      gameState: ApiGameState;
+      moveResult: {
+        isValid: boolean;
+        isComplete: boolean;
+        winner: string | null;
+      };
+    }>(`/games/${request.gameId}/move`, {
       method: 'POST',
       body: JSON.stringify(request),
     });
+    
+    if (response.success && response.data) {
+      const convertedGameState = fromApiGameState(response.data.gameState);
+      return {
+        success: true,
+        data: {
+          gameState: convertedGameState,
+          moveResult: response.data.moveResult,
+        },
+      };
+    }
+    
+    return response as ApiResponse<{
+      gameState: Game;
+      moveResult: {
+        isValid: boolean;
+        isComplete: boolean;
+        winner: string | null;
+      };
+    }>;
   }
 
   async startGame(gameId: string, playerId: string): Promise<ApiResponse<{
@@ -238,7 +277,7 @@ class ApiService {
       redis: string;
     };
   }>> {
-    return this.request('/health');
+    return this.request('/health', {}, false); // Don't use /api prefix for health
   }
 }
 

@@ -204,7 +204,9 @@ export const useGamePolling = (gameId: string | null, playerId: string | null, i
     };
   }, [gameId, playerId, interval, pollGameState]);
 
+  
   return {
+    gameData: gameState,
     gameState,
     loading,
     error,

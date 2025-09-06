@@ -15,39 +15,6 @@ export interface Player {
     hints: number;
 }
 
-export interface FirestorePlayer {
-    id: string;
-    errors: number;
-    timer: number;
-    hints: number;
-    // board, notes, etc. are stored at the top level for co-op or individually for versus
-}
-
-export interface FirestoreGame {
-    gameId?: string;
-    puzzle: string;
-    solution: string;
-    difficulty: GameDifficulty;
-    mode: GameMode;
-    status: GameStatus;
-    players: { [key: string]: FirestorePlayer };
-    winner?: string | null;
-    createdAt: any;
-    // For Co-op mode, the board state is shared
-    coopState?: {
-        board: string;
-        notes: string;
-        errorCells: { row: number, col: number }[];
-    },
-    // For Versus mode, each player has their own board
-    versusState?: {
-        [playerId: string]: {
-            board: string;
-            notes: string;
-            errorCells: { row: number, col: number }[];
-        }
-    }
-}
 
 export interface Game {
     gameId?: string;
@@ -61,31 +28,54 @@ export interface Game {
     createdAt?: any;
 }
 
-export const fromFirestoreGame = (firestoreGame: FirestoreGame, id: string): Game | null => {
-    if (!firestoreGame) return null;
+// Backend API game state structure
+export interface ApiGameState {
+    gameId: string;
+    puzzle: string; // 81-character string representation
+    solution?: string; // 81-character string representation (not returned to frontend)
+    difficulty: GameDifficulty;
+    mode: GameMode;
+    status: GameStatus;
+    players: {
+        [playerId: string]: {
+            id: string;
+            board: string; // 81-character string representation
+            notes: string; // JSON string of notes
+            errors: number;
+            timer: number;
+            hints: number;
+            errorCells: Array<{ row: number; col: number }>;
+        };
+    };
+    winner?: string | null;
+    createdAt: string;
+    expiresAt?: string;
+}
+
+// Convert backend API game state to frontend Game format
+export const fromApiGameState = (apiGameState: ApiGameState): Game | null => {
+    if (!apiGameState) {
+        return null;
+    }
     
     const players: { [key: string]: Player } = {};
-    if (firestoreGame.players) {
-        for (const pId in firestoreGame.players) {
-            const pData = firestoreGame.players[pId];
-            let playerBoard: (number|null)[][] = [];
+    if (apiGameState.players) {
+        for (const pId in apiGameState.players) {
+            const pData = apiGameState.players[pId];
+            
+            // Convert string board to 2D array
+            const playerBoard = sudokuGenerator.stringToBoard(pData.board);
+            
+            // Convert JSON notes string to Set array
             let playerNotes: Set<number>[][] = [];
-            let playerErrorCells: {row: number, col: number}[] = [];
-
-            if (firestoreGame.mode === 'Co-op' && firestoreGame.coopState) {
-                playerBoard = sudokuGenerator.stringToBoard(firestoreGame.coopState.board);
-                playerNotes = sudokuGenerator.stringToNotes(firestoreGame.coopState.notes);
-                playerErrorCells = firestoreGame.coopState.errorCells;
-            } else if (firestoreGame.mode === 'Versus' && firestoreGame.versusState?.[pId]) {
-                 const vsState = firestoreGame.versusState[pId];
-                 playerBoard = sudokuGenerator.stringToBoard(vsState.board);
-                 playerNotes = sudokuGenerator.stringToNotes(vsState.notes);
-                 playerErrorCells = vsState.errorCells;
-            } else {
-                 // Fallback for solo or if state is missing
-                 playerBoard = sudokuGenerator.stringToBoard(firestoreGame.puzzle);
-                 playerNotes = sudokuGenerator.createEmptyNotes();
-                 playerErrorCells = [];
+            try {
+                const notesData = JSON.parse(pData.notes);
+                playerNotes = notesData.map((row: any[]) => 
+                    row.map((cell: any[]) => new Set(cell))
+                );
+            } catch (error) {
+                console.error('Error parsing notes:', error);
+                playerNotes = sudokuGenerator.createEmptyNotes();
             }
 
             players[pId] = {
@@ -95,20 +85,23 @@ export const fromFirestoreGame = (firestoreGame: FirestoreGame, id: string): Gam
                 hints: pData.hints,
                 board: playerBoard,
                 notes: playerNotes,
-                errorCells: playerErrorCells
+                errorCells: pData.errorCells
             };
         }
     }
 
-    return {
-        gameId: id,
-        puzzle: sudokuGenerator.stringToBoard(firestoreGame.puzzle),
-        solution: sudokuGenerator.stringToBoard(firestoreGame.solution),
-        difficulty: firestoreGame.difficulty,
-        mode: firestoreGame.mode,
-        status: firestoreGame.status,
-        winner: firestoreGame.winner,
-        createdAt: firestoreGame.createdAt,
+    const convertedGame = {
+        gameId: apiGameState.gameId,
+        puzzle: sudokuGenerator.stringToBoard(apiGameState.puzzle),
+        solution: apiGameState.solution ? sudokuGenerator.stringToBoard(apiGameState.solution) : [],
+        difficulty: apiGameState.difficulty,
+        mode: apiGameState.mode,
+        status: apiGameState.status,
+        winner: apiGameState.winner,
+        createdAt: apiGameState.createdAt,
         players,
     };
+    
+    return convertedGame;
 };
+

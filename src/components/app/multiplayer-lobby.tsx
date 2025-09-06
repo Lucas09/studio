@@ -4,12 +4,17 @@ import React from 'react';
 import { Copy, Users, Sword } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import type { Game } from '@/lib/game-state';
-import { startGame } from '@/services/game-service';
-import { useGameUpdates } from '@/hooks/use-game-updates';
+import { useGameApi } from '@/hooks/use-game-api';
+import { useGamePolling } from '@/hooks/use-game-api';
 
 const MultiplayerLobby = ({ game, t, setActiveView, setGameData: setGameDataProp, playerId }) => {
     const { toast } = useToast();
-    const { gameData } = useGameUpdates(game?.gameId);
+    const { startGame, loading: apiLoading, error: apiError } = useGameApi();
+    const { gameState: gameData, loading: pollingLoading, error: pollingError } = useGamePolling(
+        game?.gameId, 
+        playerId, 
+        2000 // Poll every 2 seconds
+    );
 
     // Listen for game updates
     React.useEffect(() => {
@@ -32,10 +37,18 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData: setGameDataProp
         }
     };
 
-    const handleStartGame = () => {
+    const handleStartGame = async () => {
         if(gameData?.gameId && Object.keys(gameData.players).length > 1) {
-            // The creator of the game should be the one starting it.
-             startGame(gameData.gameId);
+            try {
+                await startGame(gameData.gameId, playerId);
+            } catch (err) {
+                console.error("Error starting game:", err);
+                toast({
+                    title: "Error",
+                    description: "Failed to start game. Please try again.",
+                    variant: "destructive",
+                });
+            }
         }
     };
     
@@ -77,10 +90,10 @@ const MultiplayerLobby = ({ game, t, setActiveView, setGameData: setGameDataProp
 
                 <button 
                     onClick={handleStartGame} 
-                    disabled={!hasTwoPlayers || !isCreator}
+                    disabled={!hasTwoPlayers || !isCreator || apiLoading}
                     className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isCreator ? t.startGame : t.waitingForHost}
+                    {apiLoading ? 'Starting...' : (isCreator ? t.startGame : t.waitingForHost)}
                 </button>
                  {!isCreator && <p className="text-sm text-gray-500 mt-4">{t.waitingForHostDescription}</p>}
             </div>

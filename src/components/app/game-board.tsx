@@ -65,13 +65,17 @@ const Confetti = () => {
 
 
 const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameDataProp }) => {
+    
     const isMultiplayer = !!initialGameData.gameId;
     
-    const { gameData: liveGameData, loading: pollingLoading, error: pollingError } = useGamePolling(
+    const pollingResult = useGamePolling(
         initialGameData.gameId, 
         playerId, 
         2000 // Poll every 2 seconds
     );
+    
+    const { gameData: liveGameData, loading: pollingLoading, error: pollingError } = pollingResult;
+    
     const [soloGameData, setSoloGameData] = React.useState<Game | null>(() => {
         if (!isMultiplayer && initialGameData?.players?.[playerId]) {
             // This is a resumed solo game
@@ -179,7 +183,8 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
             const updates: Partial<Player> = { timer: newTime };
             
             if (isMultiplayer && gameData.gameId) {
-                updateGame(gameData.gameId, playerId, updates);
+                // For multiplayer games, timer updates are handled by the backend
+                // No need to manually update the timer via API
             } else if (soloGameData) {
                  const updatedPlayerState = { ...playerState, ...updates };
                  const updatedGame = { ...soloGameData, players: { ...soloGameData.players, [playerId]: updatedPlayerState }};
@@ -298,7 +303,12 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
                 } else {
                     cellNotes.add(num);
                 }
-                updateGameState({ notes: newNotes });
+                if (isMultiplayer) {
+                    // For multiplayer, notes are handled by the API
+                    // The polling will update the state
+                } else {
+                    updateGameState({ notes: newNotes });
+                }
             } else {
                 let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
                 const newBoard = board.map(r => [...r]);
@@ -307,11 +317,21 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
                 if (solution && solution[row][col] === num) {
                     const newNotes = clearNotesForValue(notes, row, col, num);
                     setHighlightedNumber(num);
-                    updateGameState({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
+                    if (isMultiplayer) {
+                        // For multiplayer, moves are handled by the API
+                        // The polling will update the state
+                    } else {
+                        updateGameState({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
+                    }
                 } else {
                     newErrorCells.push({ row, col });
                     const newErrors = errors + 1;
-                    updateGameState({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
+                    if (isMultiplayer) {
+                        // For multiplayer, moves are handled by the API
+                        // The polling will update the state
+                    } else {
+                        updateGameState({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
+                    }
                 }
             }
         }
@@ -340,7 +360,12 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
             }
 
             const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
-            updateGameState({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
+            if (isMultiplayer) {
+                // For multiplayer, moves are handled by the API
+                // The polling will update the state
+            } else {
+                updateGameState({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
+            }
         }
     };
 
@@ -355,7 +380,12 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
                 newBoard[r][c] = hintNum;
                 const newNotes = clearNotesForValue(notes, r, c, hintNum);
                 const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === r && cell.col === c));
-                updateGameState({ board: newBoard, hints: hints - 1, notes: newNotes, errorCells: newErrorCells });
+                if (isMultiplayer) {
+                    // For multiplayer, moves are handled by the API
+                    // The polling will update the state
+                } else {
+                    updateGameState({ board: newBoard, hints: hints - 1, notes: newNotes, errorCells: newErrorCells });
+                }
             }
         } else if (!isGameWon) {
             setAdMessage(t.adForHint);
@@ -367,10 +397,21 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
     const handleAdConfirm = (type) => {
         setIsAdPlaying(false);
         setTimeout(() => {
-            if(type === 'hint') updateGameState({ hints: (hints || 0) + 1 });
-            else if (type === 'life') {
+            if(type === 'hint') {
+                if (isMultiplayer) {
+                    // For multiplayer, hints are handled by the API
+                    // The polling will update the state
+                } else {
+                    updateGameState({ hints: (hints || 0) + 1 });
+                }
+            } else if (type === 'life') {
                 setIsGameOver(false);
-                updateGameState({ errors: Math.min(2, errors) });
+                if (isMultiplayer) {
+                    // For multiplayer, errors are handled by the API
+                    // The polling will update the state
+                } else {
+                    updateGameState({ errors: Math.min(2, errors) });
+                }
             }
         }, 1500);
     };
@@ -404,6 +445,18 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
     const gameWonByCurrentPlayer = isGameWon && (gameData.winner === playerId || !isMultiplayer);
     const gameLost = isGameOver || (gameData.status === 'finished' && gameData.winner !== null && gameData.winner !== playerId);
 
+
+    // Show loading state if game data is not available
+    if (!gameData) {
+        return (
+            <div className="p-4 bg-gray-50 text-gray-800 flex flex-col h-full justify-center items-center">
+                <div className="text-lg font-semibold mb-4">Loading game...</div>
+                {pollingLoading && <div className="text-sm text-gray-600">Connecting to game server...</div>}
+                {pollingError && <div className="text-sm text-red-600">Error loading game: {pollingError}</div>}
+                <div className="text-xs text-gray-500 mt-2">Debug: gameId={initialGameData?.gameId}, playerId={playerId}</div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 bg-gray-50 text-gray-800 flex flex-col h-full justify-between">
