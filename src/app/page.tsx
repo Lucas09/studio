@@ -6,7 +6,7 @@ import MultiplayerLobby from "@/components/app/multiplayer-lobby";
 import GameBoard from "@/components/app/game-board";
 import type { Game } from "@/lib/game-state";
 import DailyChallenges from "@/components/app/daily-challenges";
-import Profile from "@/components/app/profile";
+import ProfileStats from "@/components/app/profile-stats";
 import { Home, Trophy, UserCircle } from 'lucide-react';
 import { sudokuGenerator } from '@/lib/sudoku';
 
@@ -216,7 +216,7 @@ export default function App() {
         case 'daily':
             return <DailyChallenges onStartDailyChallenge={handleStartDailyChallenge} t={t} />;
         case 'profile':
-            return <Profile t={t} language={language} setLanguage={setLanguage} />;
+            return <ProfileStats t={t} language={language} setLanguage={setLanguage} />;
         default:
              return (
                 <Lobby

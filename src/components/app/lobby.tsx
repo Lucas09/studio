@@ -2,7 +2,7 @@
 import React from 'react';
 import { History, Users, Sword } from 'lucide-react';
 import type { GameDifficulty } from '@/lib/game-state';
-import { createMultiplayerGame, joinMultiplayerGame } from '@/services/game-service';
+import { useGameApi } from '@/hooks/use-game-api';
 
 const Lobby = ({ 
   onStartGame, 
@@ -15,6 +15,7 @@ const Lobby = ({
   const [difficulty, setDifficulty] = React.useState<GameDifficulty>('Easy');
   const [hasSavedGame, setHasSavedGame] = React.useState(false);
   const [joinCode, setJoinCode] = React.useState('');
+  const { createGame, joinGame, loading, error } = useGameApi();
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -33,12 +34,12 @@ const Lobby = ({
   const handleCreateMultiplayer = async (mode: 'Co-op' | 'Versus') => {
     if (!playerId) return;
     try {
-      const gameId = await createMultiplayerGame(playerId, difficulty, mode);
-      setGameData({ gameId });
+      const gameData = await createGame(difficulty, mode, playerId);
+      setGameData({ gameId: gameData.gameId });
       setActiveView('multiplayer-lobby');
     } catch (err) {
       console.error("Error creating game:", err);
-      alert("Kunne ikke oprette spil. Prøv igen.");
+      alert(error || "Kunne ikke oprette spil. Prøv igen.");
     }
   };
 
@@ -47,14 +48,14 @@ const Lobby = ({
     if (!playerId) return;
     const code = joinCode.trim();
 
-    if (code.length === 20) {
+    if (code.length >= 10) {
       try {
-        await joinMultiplayerGame(code, playerId);
+        await joinGame(code, playerId);
         setGameData({ gameId: code });
         setActiveView('multiplayer-lobby');
       } catch (err) {
         console.error("Error joining game:", err);
-        alert("Kunne ikke joine spil. Tjek koden og prøv igen.");
+        alert(error || "Kunne ikke joine spil. Tjek koden og prøv igen.");
       }
     } else {
       alert(t.invalidGameId);
@@ -90,18 +91,21 @@ const Lobby = ({
         <div className="flex flex-col space-y-4 mb-6">
           <button 
             onClick={() => onStartGame({ difficulty, mode: 'Solo' })} 
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">
-            {t.startGameAlone}
+            disabled={loading}
+            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105 disabled:transform-none">
+            {loading ? 'Loading...' : t.startGameAlone}
           </button>
           <button 
             onClick={() => handleCreateMultiplayer('Co-op')} 
-            className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">
-            <Users className="mr-3"/>{t.coop}
+            disabled={loading}
+            className="w-full bg-teal-500 hover:bg-teal-600 disabled:bg-gray-400 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105 disabled:transform-none">
+            <Users className="mr-3"/>{loading ? 'Loading...' : t.coop}
           </button>
           <button 
             onClick={() => handleCreateMultiplayer('Versus')} 
-            className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105">
-            <Sword className="mr-3"/>{t.vs}
+            disabled={loading}
+            className="w-full bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center transition-transform transform hover:scale-105 disabled:transform-none">
+            <Sword className="mr-3"/>{loading ? 'Loading...' : t.vs}
           </button>
         </div>
         
@@ -118,8 +122,9 @@ const Lobby = ({
             />
             <button 
               type="submit" 
-              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl">
-              {t.join}
+              disabled={loading}
+              className="w-full bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-xl">
+              {loading ? 'Loading...' : t.join}
             </button>          </form>
         </div>
       </div>

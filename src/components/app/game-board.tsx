@@ -3,8 +3,7 @@
 import React from 'react';
 import { ArrowLeft, Lightbulb, Eraser, Repeat, Video } from 'lucide-react';
 import type { Game, Player, GameDifficulty } from '@/lib/game-state';
-import { updateGame, endGame } from '@/services/game-service';
-import { useGameUpdates } from '@/hooks/use-game-updates';
+import { useGameApi, useGamePolling } from '@/hooks/use-game-api';
 import { sudokuGenerator } from '@/lib/sudoku';
 
 
@@ -68,7 +67,11 @@ const Confetti = () => {
 const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameDataProp }) => {
     const isMultiplayer = !!initialGameData.gameId;
     
-    const { gameData: liveGameData } = useGameUpdates(initialGameData.gameId);
+    const { gameData: liveGameData, loading: pollingLoading, error: pollingError } = useGamePolling(
+        initialGameData.gameId, 
+        playerId, 
+        2000 // Poll every 2 seconds
+    );
     const [soloGameData, setSoloGameData] = React.useState<Game | null>(() => {
         if (!isMultiplayer && initialGameData?.players?.[playerId]) {
             // This is a resumed solo game
@@ -79,6 +82,7 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
 
     const gameData = isMultiplayer ? liveGameData : soloGameData;
     const setGameData = isMultiplayer ? setGameDataProp : setSoloGameData;
+    const { makeMove, startGame, loading: apiLoading, error: apiError } = useGameApi();
 
 
     const [isNoteMode, setIsNoteMode] = React.useState(false);
@@ -202,9 +206,11 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
         }
     }, [errors, isMultiplayer, gameData?.gameId]);
 
-    const updateGameState = (updates: Partial<Player>) => {
+    const updateGameState = async (updates: Partial<Player>) => {
         if (isMultiplayer && gameData?.gameId) {
-            updateGame(gameData.gameId, playerId, updates);
+            // For multiplayer, we'll handle moves through the API
+            // This function is mainly for solo games now
+            return;
         } else if(soloGameData) {
              const updatedPlayerState = { ...playerState, ...updates };
              const updatedGame = { ...soloGameData, players: { ...soloGameData.players, [playerId]: updatedPlayerState }};
@@ -269,53 +275,73 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
         return newNotes;
     };
 
-    const handleNumberInput = (num) => {
+    const handleNumberInput = async (num) => {
         if (!selectedCell || isGameWon || gameData?.status === 'finished' || !playerState || !board || !notes || !puzzle) return;
         const { row, col } = selectedCell;
         
         if (puzzle[row][col] !== null) return; 
 
-        if (isNoteMode) {
-            const newNotes = notes.map(r => r.map(c => new Set(c)));
-            const cellNotes = newNotes[row][col];
-            if (cellNotes.has(num)) {
-                cellNotes.delete(num);
-            } else {
-                cellNotes.add(num);
+        if (isMultiplayer && gameData?.gameId) {
+            // Use API for multiplayer games
+            try {
+                await makeMove(gameData.gameId, playerId, row, col, num, isNoteMode);
+            } catch (error) {
+                console.error('Failed to make move:', error);
             }
-            updateGameState({ notes: newNotes });
         } else {
-            let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
-            const newBoard = board.map(r => [...r]);
-            newBoard[row][col] = num;
-            
-            if (solution && solution[row][col] === num) {
-                const newNotes = clearNotesForValue(notes, row, col, num);
-                setHighlightedNumber(num);
-                updateGameState({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
+            // Handle solo games locally
+            if (isNoteMode) {
+                const newNotes = notes.map(r => r.map(c => new Set(c)));
+                const cellNotes = newNotes[row][col];
+                if (cellNotes.has(num)) {
+                    cellNotes.delete(num);
+                } else {
+                    cellNotes.add(num);
+                }
+                updateGameState({ notes: newNotes });
             } else {
-                newErrorCells.push({ row, col });
-                const newErrors = errors + 1;
-                updateGameState({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
+                let newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
+                const newBoard = board.map(r => [...r]);
+                newBoard[row][col] = num;
+                
+                if (solution && solution[row][col] === num) {
+                    const newNotes = clearNotesForValue(notes, row, col, num);
+                    setHighlightedNumber(num);
+                    updateGameState({ board: newBoard, errorCells: newErrorCells, notes: newNotes });
+                } else {
+                    newErrorCells.push({ row, col });
+                    const newErrors = errors + 1;
+                    updateGameState({ board: newBoard, errorCells: newErrorCells, errors: newErrors });
+                }
             }
         }
     };
     
-    const handleErase = () => {
+    const handleErase = async () => {
         if (!selectedCell || isGameWon || gameData?.status === 'finished' || !playerState || !board || !puzzle) return;
         const { row, col } = selectedCell;
         if (puzzle[row][col] !== null) return;
         
-        const newBoard = board.map(r => [...r]);
-        newBoard[row][col] = null;
-        
-        const newNotes = notes?.map(r => r.map(c => new Set(c)));
-        if (newNotes && newNotes[row]) {
-            newNotes[row][col].clear();
-        }
+        if (isMultiplayer && gameData?.gameId) {
+            // Use API for multiplayer games
+            try {
+                await makeMove(gameData.gameId, playerId, row, col, null, false);
+            } catch (error) {
+                console.error('Failed to erase:', error);
+            }
+        } else {
+            // Handle solo games locally
+            const newBoard = board.map(r => [...r]);
+            newBoard[row][col] = null;
+            
+            const newNotes = notes?.map(r => r.map(c => new Set(c)));
+            if (newNotes && newNotes[row]) {
+                newNotes[row][col].clear();
+            }
 
-        const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
-        updateGameState({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
+            const newErrorCells = (playerState.errorCells || []).filter(cell => !(cell.row === row && cell.col === col));
+            updateGameState({ board: newBoard, notes: newNotes, errorCells: newErrorCells });
+        }
     };
 
     const handleHint = () => {
