@@ -12,14 +12,14 @@ export class SudokuGenerator {
     };
   }
 
-  private createSolvedBoard(): number[][] {
+  private createSolvedBoard(): (number | null)[][] {
     const board = Array(9).fill(null).map(() => Array(9).fill(null));
     this.solve(board);
     return board;
   }
 
-  private solve(board: number[][]): boolean {
-    const findEmpty = (b: number[][]) => {
+  private solve(board: (number | null)[][]): boolean {
+    const findEmpty = (b: (number | null)[][]) => {
       for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
           if (b[r][c] === null) return [r, c];
@@ -28,7 +28,7 @@ export class SudokuGenerator {
       return null;
     };
 
-    const isValid = (num: number, pos: [number, number], b: number[][]) => {
+    const isValid = (num: number, pos: [number, number], b: (number | null)[][]) => {
       const [r, c] = pos;
       
       // Check row
@@ -68,7 +68,7 @@ export class SudokuGenerator {
     return false;
   }
 
-  private createPuzzle(solution: number[][], difficulty: string): number[][] {
+  private createPuzzle(solution: (number | null)[][], difficulty: string): (number | null)[][] {
     const puzzle = solution.map(row => [...row]);
     let holes: number;
 
@@ -105,18 +105,18 @@ export class SudokuGenerator {
     return puzzle;
   }
 
-  boardToString(board: number[][]): string {
+  boardToString(board: (number | null)[][]): string {
     return board.map(row => 
       row.map(cell => cell === null ? '.' : cell.toString()).join('')
     ).join('');
   }
 
-  stringToBoard(boardString: string): number[][] {
+  stringToBoard(boardString: string): (number | null)[][] {
     if (!boardString || boardString.length !== 81) {
       return Array(9).fill(null).map(() => Array(9).fill(null));
     }
 
-    const board: number[][] = [];
+    const board: (number | null)[][] = [];
     for (let i = 0; i < 9; i++) {
       const rowString = boardString.substring(i * 9, (i + 1) * 9);
       const row = rowString.split('').map(char => 
@@ -193,7 +193,7 @@ export class SudokuGenerator {
     return true;
   }
 
-  isBoardComplete(board: number[][]): boolean {
+  isBoardComplete(board: (number | null)[][]): boolean {
     for (let r = 0; r < 9; r++) {
       for (let c = 0; c < 9; c++) {
         if (board[r][c] === null) return false;
@@ -202,7 +202,7 @@ export class SudokuGenerator {
     return true;
   }
 
-  isBoardValid(board: number[][]): boolean {
+  isBoardValid(board: (number | null)[][]): boolean {
     // Check rows
     for (let r = 0; r < 9; r++) {
       const seen = new Set<number>();

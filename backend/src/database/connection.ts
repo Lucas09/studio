@@ -13,7 +13,7 @@ class DatabaseConnection {
       connectionTimeoutMillis: 2000,
     });
 
-    this.pool.on('error', (err) => {
+    this.pool.on('error', (err: Error) => {
       console.error('Unexpected error on idle client', err);
     });
   }

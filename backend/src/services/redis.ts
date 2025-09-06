@@ -23,7 +23,6 @@ class RedisService {
           return Math.min(retries * 100, 3000);
         },
         connectTimeout: 10000,
-        lazyConnect: true,
       },
       password: redisUrl.password || undefined,
     });

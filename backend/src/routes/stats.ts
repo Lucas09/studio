@@ -106,7 +106,7 @@ router.get('/user/:userId/games', [
       [userId, limit, offset]
     );
 
-    const games = gamesResult.rows.map(row => ({
+    const games = gamesResult.rows.map((row: any) => ({
       gameId: row.game_id,
       players: row.players,
       difficulty: row.difficulty,
@@ -194,7 +194,7 @@ router.get('/leaderboard', [
 
     const result = await db.query(query, params);
 
-    const leaderboard = result.rows.map((row, index) => ({
+    const leaderboard = result.rows.map((row: any, index: number) => ({
       rank: index + 1,
       userId: row.user_id,
       totalGames: row.total_games,
@@ -244,7 +244,7 @@ router.get('/global', [
       GROUP BY difficulty
       ORDER BY count DESC
     `);
-    const gamesByDifficulty = difficultyStatsResult.rows.reduce((acc, row) => {
+    const gamesByDifficulty = difficultyStatsResult.rows.reduce((acc: Record<string, number>, row: any) => {
       acc[row.difficulty] = parseInt(row.count);
       return acc;
     }, {} as Record<string, number>);
@@ -256,7 +256,7 @@ router.get('/global', [
       GROUP BY mode
       ORDER BY count DESC
     `);
-    const gamesByMode = modeStatsResult.rows.reduce((acc, row) => {
+    const gamesByMode = modeStatsResult.rows.reduce((acc: Record<string, number>, row: any) => {
       acc[row.mode] = parseInt(row.count);
       return acc;
     }, {} as Record<string, number>);

@@ -23,7 +23,7 @@ async function runMigrations() {
       ORDER BY table_name
     `);
     
-    console.log('📋 Created tables:', tablesResult.rows.map(row => row.table_name));
+    console.log('📋 Created tables:', tablesResult.rows.map((row: any) => row.table_name));
     
   } catch (error) {
     console.error('❌ Migration failed:', error);
