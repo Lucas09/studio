@@ -6,7 +6,7 @@ export const config = {
   server: {
     port: parseInt(process.env.PORT || '3001', 10),
     nodeEnv: process.env.NODE_ENV || 'development',
-    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:9002,http://localhost:3001,https://sudoku-zeta-liard.vercel.app,https://*.vercel.app,https://railway.app',
+    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000,http://localhost:9002,http://localhost:3001,https://sudoku-zeta-liard.vercel.app,https://*.vercel.app',
   },
   
   database: {

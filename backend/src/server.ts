@@ -42,6 +42,8 @@ app.get('/health', async (req, res) => {
       success: isHealthy,
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp: new Date().toISOString(),
+      corsFixed: true,
+      version: '2.0',
       services: {
         database: dbHealth ? 'healthy' : 'unhealthy',
         redis: redisHealth ? 'healthy' : 'unhealthy',
