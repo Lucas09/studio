@@ -181,7 +181,8 @@ export const corsOptions = {
     // Debug logging
     console.log('CORS check:', { origin, allowedOrigins });
     
-    if (allowedOrigins.includes(origin) || origin?.includes('vercel.app')) {
+    // Temporarily allow all origins for debugging
+    if (allowedOrigins.includes(origin) || origin?.includes('vercel.app') || origin?.includes('railway.app') || true) {
       callback(null, true);
     } else {
       console.log('CORS blocked:', origin);
