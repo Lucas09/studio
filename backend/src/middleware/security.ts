@@ -178,9 +178,13 @@ export const corsOptions = {
     
     const allowedOrigins = config.server.corsOrigin.split(',').map(o => o.trim());
     
-    if (allowedOrigins.includes(origin)) {
+    // Debug logging
+    console.log('CORS check:', { origin, allowedOrigins });
+    
+    if (allowedOrigins.includes(origin) || origin?.includes('vercel.app')) {
       callback(null, true);
     } else {
+      console.log('CORS blocked:', origin);
       callback(new Error('Not allowed by CORS'));
     }
   },
