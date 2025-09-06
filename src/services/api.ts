@@ -72,7 +72,7 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     try {
       const baseUrl = useApiPrefix ? API_BASE_URL : API_BASE_URL.replace('/api', '');
-      const url = `${baseUrl}${endpoint}`;
+      const url = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
       const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
