@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/backend/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -43,3 +44,15 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# backend specific
+backend/.env
+backend/logs/
+backend/dist/
+backend/*.log
+
+# temporary files
+*.tmp
+*.temp
+debug-*.js
+test-*.js
