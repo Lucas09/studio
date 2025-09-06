@@ -205,9 +205,7 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
      React.useEffect(() => {
         if (errors >= 3) {
             setIsGameOver(true);
-            if (isMultiplayer && gameData.gameId) {
-                endGame(gameData.gameId, 'lost');
-            }
+            // Game state is managed by the backend for multiplayer games
         }
     }, [errors, isMultiplayer, gameData?.gameId]);
 
@@ -242,9 +240,7 @@ const GameBoard = ({ initialGameData, onBack, t, playerId, setGameData: setGameD
         }
 
         setIsGameWon(true);
-        if(isMultiplayer && gameData?.gameId) {
-             endGame(gameData.gameId, 'win', playerId);
-        }
+        // Game state is managed by the backend for multiplayer games
     };
 
     const formatTime = (seconds) => {
